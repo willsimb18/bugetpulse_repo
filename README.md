@@ -17,7 +17,17 @@ db/healthcheck.sql      one query that reports setup state
 
 ## One-time setup
 
-### 1. Create the repo
+### 0. Backfill the migration ledger (only if you already ran SQL by hand)
+
+If you applied `01`–`07` and `10` in the Supabase SQL Editor, the runner's
+ledger is empty and its first run would try to apply them again — failing
+on `type "frequency" already exists`. Run this once, in the SQL Editor:
+
+    db/optional/00_backfill_migrations.sql
+
+Skip it on a brand-new Supabase project.
+
+### 1. Push the code
 
 On github.com → **New repository** → name it `budgetpulse` → **Private**. Don't add a README; you already have one.
 
@@ -28,7 +38,7 @@ git init
 git add .
 git commit -m "BudgetPulse: app and database"
 git branch -M main
-git remote add origin https://github.com/<your-username>/budgetpulse.git
+git remote add origin https://github.com/willsimb18/bugetpulse_repo.git
 git push -u origin main
 ```
 
