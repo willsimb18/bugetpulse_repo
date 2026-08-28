@@ -1,0 +1,38 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    @apply bg-paper text-ink font-sans antialiased;
+    /* Faint continuous-feed perforation down the left edge — the one
+       decorative flourish, and it comes straight from the subject. */
+    background-image: radial-gradient(circle at 10px 50%, #E2EAE2 1.5px, transparent 1.6px);
+    background-size: 20px 22px;
+    background-repeat: repeat-y;
+  }
+  :focus-visible { @apply outline-2 outline-offset-2 outline-slate; }
+}
+
+@layer components {
+  /* Greenbar: alternating bands, the way tractor-feed ledger paper reads. */
+  .bar-row:nth-child(even) { @apply bg-bar; }
+  .num { @apply font-mono tabular-nums; }
+  .rule-t { @apply border-t border-rule; }
+  .btn {
+    @apply px-3 py-2 text-sm font-medium border border-rule bg-white
+           active:translate-y-px disabled:opacity-40 disabled:pointer-events-none;
+  }
+  .btn-go { @apply btn bg-ink text-paper border-ink; }
+  .field {
+    @apply w-full px-3 py-2 border border-rule bg-white font-mono text-base
+           focus:border-slate;
+  }
+  .eyebrow { @apply text-[11px] uppercase tracking-[0.14em] text-ink3 font-medium; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
