@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { Empty, Err } from '../components/Chrome'
-import { fmt, fmtDate } from '../lib/format'
+import { DEBT_TYPE_LABEL, DEBT_TYPE_ORDER, fmt, fmtDate } from '../lib/format'
 import type { DebtStatus } from '../lib/types'
 import { NewAccount } from '../components/NewAccount'
 import { DebtBalanceForm } from '../components/DebtBalanceForm'
@@ -20,6 +20,7 @@ export function Debts({ isOwner }: { isOwner: boolean }) {
   const [err, setErr] = useState<string | null>(null)
   const [openId, setOpenId] = useState<number | null>(null)
   const [adding, setAdding] = useState(false)
+  const [subType, setSubType] = useState<string>('all')
 
   const load = useCallback(async () => {
     const { data, error } = await supabase.from('v_debt_status').select('*')
@@ -29,16 +30,54 @@ export function Debts({ isOwner }: { isOwner: boolean }) {
 
   useEffect(() => { void load() }, [load])
 
-  const sorted = [...rows].sort((a, b) =>
+  // Types actually present, in fixed order, plus anything unrecognised.
+  const presentTypes = [
+    ...DEBT_TYPE_ORDER.filter((t) => rows.some((r) => r.debt_type === t)),
+    ...[...new Set(rows.map((r) => r.debt_type))]
+      .filter((t) => !DEBT_TYPE_ORDER.includes(t)).sort(),
+  ]
+
+  const shown = subType === 'all' ? rows : rows.filter((r) => r.debt_type === subType)
+
+  // Rank once across everything shown, so the numbers still read as a
+  // payoff order after the rows are split into groups.
+  const sorted = [...shown].sort((a, b) =>
     strategy === 'avalanche' ? a.avalanche_rank - b.avalanche_rank : a.snowball_rank - b.snowball_rank)
 
-  const total = rows.reduce((s, r) => s + Number(r.current_balance ?? 0), 0)
+  const groups = presentTypes
+    .filter((t) => subType === 'all' || t === subType)
+    .map((type) => ({ type, items: sorted.filter((d) => d.debt_type === type) }))
+    .filter((g) => g.items.length > 0)
+
+  const rankOf = (id: number) => sorted.findIndex((d) => d.id === id) + 1
+
+  const total = shown.reduce((s, r) => s + Number(r.current_balance ?? 0), 0)
 
   return (
     <>
-      <div className="pt-5 pb-1">
-        <p className="eyebrow">Total owed</p>
-        <p className="num text-[34px] leading-none mt-1">{fmt(total)}</p>
+      <div className="pt-5 pb-1 flex items-end justify-between gap-4">
+        <div>
+          <p className="eyebrow">
+            Total owed{subType !== 'all' && ` · ${DEBT_TYPE_LABEL[subType] ?? subType}`}
+          </p>
+          <p className="num text-[34px] leading-none mt-1">{fmt(total)}</p>
+        </div>
+
+        <label className="flex items-center gap-1.5 shrink-0 pb-1">
+          <span className="eyebrow">Sub type</span>
+          <select
+            className="border border-rule bg-white px-2 py-1 text-xs"
+            value={subType}
+            onChange={(e) => setSubType(e.target.value)}
+          >
+            <option value="all">All ({rows.length})</option>
+            {presentTypes.map((t) => (
+              <option key={t} value={t}>
+                {DEBT_TYPE_LABEL[t] ?? t} ({rows.filter((r) => r.debt_type === t).length})
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
 
       <Err msg={err} />
@@ -74,17 +113,31 @@ export function Debts({ isOwner }: { isOwner: boolean }) {
             </button>
           )}
 
-          {sorted.length === 0 && !adding && <Empty>No debts tracked yet.</Empty>}
+          {sorted.length === 0 && !adding && (
+            <Empty>
+              {subType === 'all'
+                ? 'No debts tracked yet.'
+                : `No ${(DEBT_TYPE_LABEL[subType] ?? subType).toLowerCase()} tracked.`}
+            </Empty>
+          )}
 
+          {groups.map((g) => (
+          <section key={g.type} className="mb-5">
+            <div className="flex items-baseline justify-between pb-1">
+              <h3 className="eyebrow">{DEBT_TYPE_LABEL[g.type] ?? g.type}</h3>
+              <span className="num text-xs text-ink3">
+                {g.items.length} · {fmt(g.items.reduce((t, d) => t + Number(d.current_balance ?? 0), 0))}
+              </span>
+            </div>
           <ol className="border border-rule">
-            {sorted.map((d, i) => {
+            {g.items.map((d) => {
               const pct = Number(d.paid_off_pct ?? 0)
               return (
                 <li key={d.id} className="bar-row">
                   <button className="w-full flex items-center gap-3 px-3 py-2.5 text-left"
                     onClick={() => setOpenId(openId === d.id ? null : d.id)}
                     aria-expanded={openId === d.id}>
-                    <span className="num text-xs text-ink3 w-4 shrink-0">{i + 1}</span>
+                    <span className="num text-xs text-ink3 w-4 shrink-0">{rankOf(d.id)}</span>
                     <span className="flex-1 min-w-0">
                       <span className="block truncate text-[15px]">{d.name}</span>
                       <span className="eyebrow">
@@ -141,12 +194,14 @@ export function Debts({ isOwner }: { isOwner: boolean }) {
               )
             })}
           </ol>
+          </section>
+          ))}
         </div>
 
-        {rows.length > 0 && (
+        {shown.length > 0 && (
           <>
-            <UtilizationChart rows={rows} />
-            <BalanceShareChart rows={rows} />
+            <UtilizationChart rows={shown} />
+            <BalanceShareChart rows={shown} />
           </>
         )}
       </div>

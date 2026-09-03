@@ -32,3 +32,19 @@ export function urgencyOf(due: string, status: string) {
 export const KIND_LABEL: Record<string, string> = {
   bill: 'Bills', expense: 'Expenses', debt: 'Debt payments', saving: 'Savings',
 }
+
+// account.debt_detail.debt_type — the enum the import maps Finance's
+// DebtType.TypeName onto. Shown as "sub type" in the old spreadsheet.
+export const DEBT_TYPE_LABEL: Record<string, string> = {
+  credit_card: 'Credit cards',
+  auto_loan: 'Auto loans',
+  student_loan: 'Student loans',
+  personal_loan: 'Personal loans',
+  mortgage: 'Mortgage',
+  other: 'Other',
+}
+
+// Fixed display order, so a group never changes position as balances move.
+export const DEBT_TYPE_ORDER = [
+  'credit_card', 'auto_loan', 'student_loan', 'personal_loan', 'mortgage', 'other',
+]
