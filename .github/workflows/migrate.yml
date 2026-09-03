@@ -2,21 +2,30 @@ name: Apply database migrations
 
 # Only when a migration actually changes. Pushing app code doesn't touch
 # the database.
+#
+#   main    -> production database  (production environment secret)
+#   develop -> dev database         (development environment secret)
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
     paths:
       - 'db/migrations/**.sql'
       - 'db/migrate.sh'
   workflow_dispatch:        # lets you re-run it by hand from the Actions tab
 
 concurrency:
-  group: db-migrate         # never two migrations at once
+  # Per branch, so a dev migration never blocks a production one.
+  group: db-migrate-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
   migrate:
     runs-on: ubuntu-latest
+
+    # Decides which SUPABASE_DB_URL this run can see. Put required
+    # reviewers on the production environment to gate prod behind approval.
+    environment: ${{ github.ref == 'refs/heads/main' && 'production' || 'development' }}
+
     steps:
       - uses: actions/checkout@v4
 
@@ -27,7 +36,7 @@ jobs:
 
       - name: Apply migrations
         env:
-          # Repo -> Settings -> Secrets and variables -> Actions -> New secret
+          # Resolved from the environment selected above.
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: bash db/migrate.sh
 
