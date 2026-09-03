@@ -181,12 +181,19 @@ function WageBreakdown({ w, show }: { w: WageRow; show: boolean }) {
   )
 }
 
+/*
+ * Paycheck history: month, then the paycheck itself, then who was paid.
+ *
+ * A paycheck is one pay date and kind — the household figure Finance
+ * recorded. Opening it shows the earners it was split across, each with
+ * the rate arithmetic that produces their share.
+ */
 function PaycheckMonths({ rows, wages, show }: {
   rows: IncomeRow[]; wages: WageRow[]; show: boolean
 }) {
-  const [open, setOpen] = useState<number | null>(null)
-  const rateFor = (earner: string | null) =>
-    wages.find((w) => w.earner === earner)
+  const [open, setOpen] = useState<string | null>(null)
+  const rateFor = (earner: string | null) => wages.find((w) => w.earner === earner)
+
   const mine = rows.filter(
     (r) => PAYCHECK_KINDS.has(r.kind) &&
            (r.received_on ?? '').slice(0, 4) === THIS_YEAR)
@@ -195,135 +202,135 @@ function PaycheckMonths({ rows, wages, show }: {
     return <Empty>No paychecks recorded in {THIS_YEAR}.</Empty>
   }
 
-  // BudgetIncome has no user column, so every imported row carries a null
-  // earner. Only group by person when someone is actually recorded --
-  // otherwise the level is one box called "Household" around everything.
-  const attributed = mine.some((r) => r.earner)
+  const net = (xs: IncomeRow[]) => xs.reduce((t, r) => t + Number(r.net ?? 0), 0)
 
-  const months = new Map<string, IncomeRow[]>()
+  // month -> paycheck (pay date + kind) -> the rows that make it up
+  const months = new Map<string, Map<string, IncomeRow[]>>()
   for (const r of mine) {
-    const key = `${(r.received_on ?? '').slice(0, 7)}-01`
-    months.set(key, [...(months.get(key) ?? []), r])
+    const mk = `${(r.received_on ?? '').slice(0, 7)}-01`
+    const pk = `${r.received_on}|${r.kind}`
+    const inner = months.get(mk) ?? new Map<string, IncomeRow[]>()
+    inner.set(pk, [...(inner.get(pk) ?? []), r])
+    months.set(mk, inner)
   }
-  const ordered = [...months.entries()].sort((a, b) => b[0].localeCompare(a[0]))
-  const sum = (xs: IncomeRow[]) => xs.reduce((t, r) => t + Number(r.net ?? 0), 0)
-  const byDate = (a: IncomeRow, b: IncomeRow) =>
-    (a.received_on ?? '').localeCompare(b.received_on ?? '')
 
-  /*
-   * A cheque, and on click the rate that produced it. The imported figure
-   * is take-home only, so the breakdown is reconstructed from the earner's
-   * wage_rate and shown for what it is: how the rate makes that number,
-   * not deductions recorded against the payment itself.
-   */
-  const Check = ({ c }: { c: IncomeRow }) => {
-    const w = rateFor(c.earner)
-    const isOpen = open === c.id
-    const share = w && Number(w.net_per_period)
-      ? Number(c.net) / Number(w.net_per_period) : 1
-    const scale = (v: number | null | undefined) => Number(v ?? 0) * share
-    return (
-      <li className="text-[12px]">
-        <button className="w-full flex items-baseline justify-between gap-2 py-0.5 text-left"
-          onClick={() => setOpen(isOpen ? null : c.id)}
-          aria-expanded={isOpen} disabled={!w}>
-          <span className="min-w-0 truncate text-ink3">
-            {w && <span className="mr-1" aria-hidden>{isOpen ? '▾' : '▸'}</span>}
-            <span className="num">{fmtDate(c.received_on)}</span>
-            {` · ${c.kind}`}
-            {Number(c.gross) !== Number(c.net) &&
-              <>{' · gross '}<span className="num">{fmtShort(c.gross)}</span></>}
-          </span>
-          <span className="num shrink-0 text-ink">{fmt(c.net)}</span>
-        </button>
-
-        {isOpen && w && (
-          <dl className="grid grid-cols-2 gap-x-3 pl-4 pb-1.5 text-[11px] text-ink3">
-            <dt>Rate</dt>
-            <dd className="num text-right">
-              {show ? `${fmt(w.hourly_rate)} × ${Number(w.standard_hours ?? 0)} hrs` : '••••••'}
-            </dd>
-            <dt>Gross</dt>
-            <dd className="num text-right">{show ? fmt(scale(w.gross_per_period)) : '••••••'}</dd>
-            <dt>Taxes</dt>
-            <dd className="num text-right">{show ? `−${fmt(scale(w.taxes_est))}` : '••••••'}</dd>
-            <dt>Healthcare</dt>
-            <dd className="num text-right">{show ? `−${fmt(scale(w.healthcare_est))}` : '••••••'}</dd>
-            <dt>401K</dt>
-            <dd className="num text-right">{show ? `−${fmt(scale(w.retirement_est))}` : '••••••'}</dd>
-            <dt className="text-ink border-t border-rule pt-0.5">Take-home</dt>
-            <dd className="num text-right text-ink border-t border-rule pt-0.5">{fmt(c.net)}</dd>
-            {Math.abs(share - 1) > 0.005 && (
-              <dd className="col-span-2 pt-1">
-                Scaled to this cheque; the rate on file is the current one.
-              </dd>
-            )}
-            {!show && <dd className="col-span-2 pt-1">Use “Show rates” above to reveal.</dd>}
-          </dl>
-        )}
-      </li>
-    )
-  }
+  const attributed = mine.some((r) => r.earner)
 
   return (
     <div className="space-y-4">
       {!attributed && (
         <p className="text-xs text-ink3">
-          Imported paychecks are take-home for the household, not per person:
-          Finance’s BudgetIncome recorded one amount per pay date, with no
-          earner and no gross. Paychecks recorded from here on carry both.
+          Imported paychecks are one household figure per pay date — Finance’s
+          BudgetIncome recorded no earner. Run split_income_by_earner.sql to
+          apportion them by each person’s pay rate.
         </p>
       )}
 
-      {ordered.map(([month, items]) => (
-        <div key={month}>
-          <div className="flex items-baseline justify-between pb-1">
-            <h4 className="eyebrow">{monthLabel(month)}</h4>
-            <span className="num text-xs text-ink3">{fmtShort(sum(items))}</span>
-          </div>
+      {[...months.entries()]
+        .sort((a, b) => b[0].localeCompare(a[0]))
+        .map(([month, checks]) => {
+          const all = [...checks.values()].flat()
+          return (
+            <div key={month}>
+              <div className="flex items-baseline justify-between pb-1">
+                <h4 className="eyebrow">{monthLabel(month)}</h4>
+                <span className="num text-xs text-ink3">{fmtShort(net(all))}</span>
+              </div>
 
-          {attributed ? (
-            <ul className="border border-rule">
-              {[...items.reduce((m, r) => {
-                const who = r.earner ?? 'Unattributed'
-                return m.set(who, [...(m.get(who) ?? []), r])
-              }, new Map<string, IncomeRow[]>()).entries()]
-                .sort((a, b) => a[0].localeCompare(b[0]))
-                .map(([who, checks]) => (
-                  <li key={who} className="bar-row px-3 py-2.5">
-                    <div className="flex items-baseline justify-between gap-3">
-                      <span className="text-[15px] truncate min-w-0">{who}</span>
-                      <span className="num text-[15px] shrink-0">{fmt(sum(checks))}</span>
-                    </div>
-                    <ul className="mt-1">
-                      {[...checks].sort(byDate).map((c) => <Check key={c.id} c={c} />)}
-                    </ul>
-                  </li>
-                ))}
-            </ul>
-          ) : (
-            <ul className="border border-rule">
-              {[...items].sort(byDate).map((c) => (
-                <li key={c.id} className="bar-row px-3 py-2">
-                  <div className="flex items-baseline justify-between gap-3">
-                    <span className="text-[13px] truncate min-w-0">
-                      <span className="num">{fmtDate(c.received_on)}</span>
-                      <span className="text-ink3"> · {c.kind}</span>
-                      {c.hours ? <span className="text-ink3"> · {c.hours} hrs</span> : null}
-                    </span>
-                    <span className="text-right shrink-0">
-                      <span className="num block text-[15px]">{fmt(c.net)}</span>
-                      {Number(c.gross) !== Number(c.net) && (
-                        <span className="num text-xs text-ink3">gross {fmtShort(c.gross)}</span>
-                      )}
-                    </span>
-                  </div>
-                </li>
-              ))}
-            </ul>
+              <ul className="border border-rule">
+                {[...checks.entries()]
+                  .sort((a, b) => a[0].localeCompare(b[0]))
+                  .map(([key, parts]) => {
+                    const isOpen = open === key
+                    const [date, kind] = key.split('|')
+                    return (
+                      <li key={key} className="bar-row">
+                        <button
+                          className="w-full flex items-baseline justify-between gap-3 px-3 py-2.5 text-left"
+                          onClick={() => setOpen(isOpen ? null : key)}
+                          aria-expanded={isOpen}
+                        >
+                          <span className="text-[15px] truncate min-w-0">
+                            <span className="text-ink3 mr-1" aria-hidden>{isOpen ? '▾' : '▸'}</span>
+                            <span className="num">{fmtDate(date)}</span>
+                            <span className="text-ink3"> · {kind}</span>
+                          </span>
+                          <span className="text-right shrink-0">
+                            <span className="num block text-[15px]">{fmt(net(parts))}</span>
+                            <span className="eyebrow">
+                              {parts.length === 1 && !parts[0].earner
+                                ? 'household'
+                                : `${parts.length} earner${parts.length === 1 ? '' : 's'}`}
+                            </span>
+                          </span>
+                        </button>
+
+                        {isOpen && (
+                          <div className="px-3 pb-3 space-y-2">
+                            {[...parts]
+                              .sort((a, b) => (a.earner ?? '').localeCompare(b.earner ?? ''))
+                              .map((c) => (
+                                <EarnerShare key={c.id} c={c} w={rateFor(c.earner)} show={show} />
+                              ))}
+                          </div>
+                        )}
+                      </li>
+                    )
+                  })}
+              </ul>
+            </div>
+          )
+        })}
+    </div>
+  )
+}
+
+/*
+ * One person's share of a paycheck, with the rate arithmetic behind it.
+ * The imported figure is take-home only, so gross and the deductions are
+ * reconstructed from that earner's rate and scaled to this cheque — only
+ * the current rate came across, and older cheques differ from it.
+ */
+function EarnerShare({ c, w, show }: {
+  c: IncomeRow; w: WageRow | undefined; show: boolean
+}) {
+  const share = w && Number(w.net_per_period)
+    ? Number(c.net) / Number(w.net_per_period) : 1
+  const scale = (v: number | null | undefined) => Number(v ?? 0) * share
+  const mask = (v: number) => (show ? fmt(v) : '••••••')
+
+  return (
+    <div>
+      <div className="flex items-baseline justify-between gap-3 text-[13px]">
+        <span className="truncate min-w-0">{c.earner ?? 'Not attributed'}</span>
+        <span className="num shrink-0">{fmt(c.net)}</span>
+      </div>
+
+      {w ? (
+        <dl className="grid grid-cols-2 gap-x-3 mt-0.5 text-[11px] text-ink3">
+          <dt>Rate</dt>
+          <dd className="num text-right">
+            {show ? `${fmt(w.hourly_rate)} × ${Number(w.standard_hours ?? 0)} hrs` : '••••••'}
+          </dd>
+          <dt>Gross</dt>
+          <dd className="num text-right">{mask(scale(w.gross_per_period))}</dd>
+          <dt>Taxes</dt>
+          <dd className="num text-right">{show ? `−${fmt(scale(w.taxes_est))}` : '••••••'}</dd>
+          <dt>Healthcare</dt>
+          <dd className="num text-right">{show ? `−${fmt(scale(w.healthcare_est))}` : '••••••'}</dd>
+          <dt>401K</dt>
+          <dd className="num text-right">{show ? `−${fmt(scale(w.retirement_est))}` : '••••••'}</dd>
+          {Math.abs(share - 1) > 0.005 && (
+            <dd className="col-span-2 pt-0.5">
+              Scaled to this cheque; the rate on file is the current one.
+            </dd>
           )}
-        </div>
-      ))}
+        </dl>
+      ) : (
+        <p className="text-[11px] text-ink3 mt-0.5">
+          No pay rate on file for this earner, so there is nothing to break down.
+        </p>
+      )}
     </div>
   )
 }
