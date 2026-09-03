@@ -3,7 +3,7 @@ import { useAuth } from './hooks/useAuth'
 import { Chrome } from './components/Chrome'
 import { Login } from './routes/Login'
 import { Period } from './routes/Period'
-import { Money } from './routes/Money'
+import { Dashboard } from './routes/Dashboard'
 import { Bills } from './routes/Bills'
 import { Income } from './routes/Income'
 import { Debts } from './routes/Debts'
@@ -33,10 +33,10 @@ export default function App() {
       <Chrome who={profile.display_name} onSignOut={signOut}>
         <Routes>
           <Route path="/" element={<Period isOwner={isOwner} />} />
-          <Route path="/money" element={<Money />} />
           <Route path="/bills" element={<Bills isOwner={isOwner} />} />
           <Route path="/income" element={<Income isOwner={isOwner} />} />
           <Route path="/debts" element={<Debts isOwner={isOwner} />} />
+          <Route path="/dashboard" element={<Dashboard />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Chrome>

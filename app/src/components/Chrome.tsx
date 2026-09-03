@@ -3,14 +3,14 @@ import type { ReactNode } from 'react'
 
 // The list pages read best as one narrow column. The debt page is the only
 // one carrying a dashboard beside its list, so it gets the full width.
-const WIDE_ROUTES = ['/debts', '/money']
+const WIDE_ROUTES = ['/debts', '/dashboard']
 
 const tabs = [
   { to: '/', label: 'Budget', end: true },
-  { to: '/money', label: 'Money' },
   { to: '/bills', label: 'Bills' },
   { to: '/income', label: 'Income' },
   { to: '/debts', label: 'Debt' },
+  { to: '/dashboard', label: 'Dashboard' },
 ]
 
 export function Chrome({
