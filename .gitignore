@@ -14,3 +14,8 @@ app/dev-dist/
 # Editor / OS
 .DS_Store
 .vscode/
+
+# Source spreadsheets — real financial data, and large binaries besides.
+*.xlsm
+*.xlsx
+*.xls
