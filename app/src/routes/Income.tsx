@@ -144,6 +144,11 @@ function PaycheckMonths({ rows }: { rows: IncomeRow[] }) {
     return <Empty>No paychecks recorded in {THIS_YEAR}.</Empty>
   }
 
+  // BudgetIncome has no user column, so every imported row carries a null
+  // earner. Only group by person when someone is actually recorded --
+  // otherwise the level is one box called "Household" around everything.
+  const attributed = mine.some((r) => r.earner)
+
   const months = new Map<string, IncomeRow[]>()
   for (const r of mine) {
     const key = `${(r.received_on ?? '').slice(0, 7)}-01`
@@ -151,50 +156,78 @@ function PaycheckMonths({ rows }: { rows: IncomeRow[] }) {
   }
   const ordered = [...months.entries()].sort((a, b) => b[0].localeCompare(a[0]))
   const sum = (xs: IncomeRow[]) => xs.reduce((t, r) => t + Number(r.net ?? 0), 0)
+  const byDate = (a: IncomeRow, b: IncomeRow) =>
+    (a.received_on ?? '').localeCompare(b.received_on ?? '')
+
+  const Check = ({ c }: { c: IncomeRow }) => (
+    <li className="flex items-baseline justify-between gap-2 py-0.5 text-[12px]">
+      <span className="min-w-0 truncate text-ink3">
+        <span className="num">{fmtDate(c.received_on)}</span>
+        {` · ${c.kind}`}
+        {c.hours ? ` · ${c.hours} hrs` : ''}
+        {' · gross '}<span className="num">{fmtShort(c.gross)}</span>
+      </span>
+      <span className="num shrink-0">{fmt(c.net)}</span>
+    </li>
+  )
 
   return (
     <div className="space-y-4">
-      {ordered.map(([month, items]) => {
-        const byEarner = new Map<string, IncomeRow[]>()
-        for (const r of items) {
-          const who = r.earner ?? 'Household'
-          byEarner.set(who, [...(byEarner.get(who) ?? []), r])
-        }
-        return (
-          <div key={month}>
-            <div className="flex items-baseline justify-between pb-1">
-              <h4 className="eyebrow">{monthLabel(month)}</h4>
-              <span className="num text-xs text-ink3">{fmtShort(sum(items))}</span>
-            </div>
+      {!attributed && (
+        <p className="text-xs text-ink3">
+          Imported paychecks aren’t attributed to a person — Finance’s
+          BudgetIncome recorded an amount per pay date, not who earned it.
+          Paychecks recorded from here on will name the earner.
+        </p>
+      )}
+
+      {ordered.map(([month, items]) => (
+        <div key={month}>
+          <div className="flex items-baseline justify-between pb-1">
+            <h4 className="eyebrow">{monthLabel(month)}</h4>
+            <span className="num text-xs text-ink3">{fmtShort(sum(items))}</span>
+          </div>
+
+          {attributed ? (
             <ul className="border border-rule">
-              {[...byEarner.entries()].sort().map(([who, checks]) => (
-                <li key={who} className="bar-row px-3 py-2.5">
+              {[...items.reduce((m, r) => {
+                const who = r.earner ?? 'Unattributed'
+                return m.set(who, [...(m.get(who) ?? []), r])
+              }, new Map<string, IncomeRow[]>()).entries()]
+                .sort((a, b) => a[0].localeCompare(b[0]))
+                .map(([who, checks]) => (
+                  <li key={who} className="bar-row px-3 py-2.5">
+                    <div className="flex items-baseline justify-between gap-3">
+                      <span className="text-[15px] truncate min-w-0">{who}</span>
+                      <span className="num text-[15px] shrink-0">{fmt(sum(checks))}</span>
+                    </div>
+                    <ul className="mt-1">
+                      {[...checks].sort(byDate).map((c) => <Check key={c.id} c={c} />)}
+                    </ul>
+                  </li>
+                ))}
+            </ul>
+          ) : (
+            <ul className="border border-rule">
+              {[...items].sort(byDate).map((c) => (
+                <li key={c.id} className="bar-row px-3 py-2">
                   <div className="flex items-baseline justify-between gap-3">
-                    <span className="text-[15px] truncate min-w-0">{who}</span>
-                    <span className="num text-[15px] shrink-0">{fmt(sum(checks))}</span>
+                    <span className="text-[13px] truncate min-w-0">
+                      <span className="num">{fmtDate(c.received_on)}</span>
+                      <span className="text-ink3"> · {c.kind}</span>
+                      {c.hours ? <span className="text-ink3"> · {c.hours} hrs</span> : null}
+                    </span>
+                    <span className="text-right shrink-0">
+                      <span className="num block text-[15px]">{fmt(c.net)}</span>
+                      <span className="num text-xs text-ink3">gross {fmtShort(c.gross)}</span>
+                    </span>
                   </div>
-                  <ul className="mt-1">
-                    {checks
-                      .sort((a, b) => (a.received_on ?? '').localeCompare(b.received_on ?? ''))
-                      .map((c) => (
-                        <li key={c.id}
-                          className="flex items-baseline justify-between gap-2 py-0.5 text-[12px]">
-                          <span className="min-w-0 truncate text-ink3">
-                            <span className="num">{fmtDate(c.received_on)}</span>
-                            {c.kind !== 'regular' && ` · ${c.kind}`}
-                            {c.hours ? ` · ${c.hours} hrs` : ''}
-                            {' · gross '}<span className="num">{fmtShort(c.gross)}</span>
-                          </span>
-                          <span className="num shrink-0">{fmt(c.net)}</span>
-                        </li>
-                    ))}
-                  </ul>
                 </li>
               ))}
             </ul>
-          </div>
-        )
-      })}
+          )}
+        </div>
+      ))}
     </div>
   )
 }
