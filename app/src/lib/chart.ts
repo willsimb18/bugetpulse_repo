@@ -1,0 +1,46 @@
+/*
+ * Chart colours.
+ *
+ * The app's own palette is a deliberately desaturated ledger green, which
+ * is right for the interface and unusable for multi-series charts: put
+ * through a categorical check, moss and slate land ΔE 10 apart for normal
+ * vision and under 6 under deuteranopia. So anything that needs to tell
+ * series apart draws from SERIES instead.
+ *
+ * SERIES was validated on the #FBFCFA surface and passes every check --
+ * lightness band, chroma floor, CVD separation (worst adjacent ΔE 15.9
+ * deutan), normal-vision floor (21.5) and contrast. THE ORDER MATTERS:
+ * green sits last precisely because it collides with orange under
+ * deuteranopia, and separating them is what clears the check. Assign these
+ * in order and never cycle -- a fifth series folds into "Other" instead.
+ */
+export const SERIES = ['#2B6CA3', '#C2410C', '#7E3F8F', '#2E8B57'] as const
+
+/*
+ * Status is a separate job from identity and keeps the app's own colours,
+ * so a surplus reads the same here as a paid row does elsewhere. Both
+ * always ship with words beside them, never colour alone.
+ */
+export const GOOD = '#2F6B4F' // moss
+export const BAD = '#B4451F'  // rust
+
+/** Largest absolute value in a set, for a shared axis. 0 never divides. */
+export const maxAbs = (xs: number[]) => Math.max(1, ...xs.map((x) => Math.abs(x)))
+
+/** Clamp to a sane bar width. */
+export const widthPct = (v: number, max: number) =>
+  `${Math.max(0, Math.min(100, (Math.abs(v) / max) * 100))}%`
+
+/** "Aug 21" from an ISO date, without dragging a date library in. */
+export function shortDate(iso: string | null | undefined) {
+  if (!iso) return '—'
+  const [y, m, d] = iso.split('-').map(Number)
+  return new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
+/** "Aug 2025" for month buckets. */
+export function monthLabel(iso: string | null | undefined) {
+  if (!iso) return '—'
+  const [y, m] = iso.split('-').map(Number)
+  return new Date(y, m - 1, 1).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+}

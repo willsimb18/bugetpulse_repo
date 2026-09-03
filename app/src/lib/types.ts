@@ -37,6 +37,7 @@ export interface PeriodSummary {
   period_end: string
   pay_date: string
   label: string | null
+  opening_balance: number
   net_income: number
   wage_income: number
   from_savings: number
