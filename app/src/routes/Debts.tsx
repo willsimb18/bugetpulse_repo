@@ -50,12 +50,13 @@ export function Debts({ isOwner }: { isOwner: boolean }) {
       )}
 
       {/*
-        Three equal columns: payoff order, then the two charts. One flat
-        grid rather than a nested one, so the list is exactly as wide as
-        "Balance against target" and the gaps are uniform. Stacks to a
-        single column below lg, so the phone view is untouched.
+        Payoff order, then the two charts. The list carries far more per
+        row -- rank, name, APR, gauge, balance, headroom -- so it gets 1.6
+        shares against 1 each for the charts rather than an equal third.
+        Stacks to a single column below lg, so the phone view is untouched.
       */}
-      <div className="grid gap-x-6 gap-y-6 items-start lg:grid-cols-3">
+      <div className="grid gap-x-6 gap-y-6 items-start
+                      lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,1fr)]">
         <div className="min-w-0">
           <div className="flex flex-wrap gap-2 py-4">
             {(['avalanche', 'snowball'] as Strategy[]).map((s) => (

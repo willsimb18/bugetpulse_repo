@@ -42,7 +42,7 @@ export function Chrome({
         ))}
       </nav>
 
-      <main className={`flex-1 pl-6 pr-4 pb-16 w-full ${wide ? 'max-w-6xl' : 'max-w-2xl'}`}>
+      <main className={`flex-1 pl-6 pr-4 pb-16 w-full ${wide ? 'max-w-7xl' : 'max-w-2xl'}`}>
         {children}
       </main>
     </div>
