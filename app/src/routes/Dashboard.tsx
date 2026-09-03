@@ -25,6 +25,7 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
                 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
 const yearOf = (iso: string) => iso.slice(0, 4)
+const THIS_YEAR = String(new Date().getFullYear())
 const monthOf = (iso: string) => Number(iso.slice(5, 7))
 
 /* PostgREST caps a response; page until a short one comes back. */
@@ -149,7 +150,11 @@ export function Dashboard() {
       const ps = (p ?? []) as PeriodSummary[]
       setPeriods(ps)
       setMonths((m ?? []) as MonthRow[])
-      if (ps.length > 0) setYear(yearOf(ps[ps.length - 1].period_start))
+      if (ps.length > 0) {
+        const ys = [...new Set(ps.map((r) => yearOf(r.period_start)))]
+          .filter((y) => y <= THIS_YEAR).sort()
+        setYear(ys.includes(THIS_YEAR) ? THIS_YEAR : (ys[ys.length - 1] ?? ALL))
+      }
       setLoading(false)
     })()
   }, [])
@@ -163,8 +168,11 @@ export function Dashboard() {
     })()
   }, [year, loading])
 
+  // generate_budget_periods runs a year forward, so budget_period holds
+  // future years with nothing in them. Keep them out of the picker.
   const years = useMemo(
-    () => [...new Set(periods.map((p) => yearOf(p.period_start)))].sort().reverse(),
+    () => [...new Set(periods.map((p) => yearOf(p.period_start)))]
+      .filter((y) => y <= THIS_YEAR).sort().reverse(),
     [periods])
 
   const categories = useMemo(
