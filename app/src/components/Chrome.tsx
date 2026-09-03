@@ -1,5 +1,9 @@
-import { NavLink } from 'react-router-dom'
+import { NavLink, useLocation } from 'react-router-dom'
 import type { ReactNode } from 'react'
+
+// The list pages read best as one narrow column. The debt page is the only
+// one carrying a dashboard beside its list, so it gets the full width.
+const WIDE_ROUTES = ['/debts']
 
 const tabs = [
   { to: '/', label: 'Budget', end: true },
@@ -11,6 +15,7 @@ const tabs = [
 export function Chrome({
   children, who, onSignOut,
 }: { children: ReactNode; who: string; onSignOut: () => void }) {
+  const wide = WIDE_ROUTES.includes(useLocation().pathname)
   return (
     <div className="min-h-dvh flex flex-col">
       <header className="pl-6 pr-4 pt-5 pb-3 flex items-baseline justify-between">
@@ -37,7 +42,9 @@ export function Chrome({
         ))}
       </nav>
 
-      <main className="flex-1 pl-6 pr-4 pb-16 max-w-2xl w-full">{children}</main>
+      <main className={`flex-1 pl-6 pr-4 pb-16 w-full ${wide ? 'max-w-6xl' : 'max-w-2xl'}`}>
+        {children}
+      </main>
     </div>
   )
 }

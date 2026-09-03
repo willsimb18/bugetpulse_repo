@@ -71,7 +71,7 @@ export function UtilizationChart({ rows }: { rows: DebtStatus[] }) {
   }
 
   return (
-    <section className="border border-rule mt-4">
+    <section className="border border-rule">
       <header className="px-3 pt-3">
         <h3 className="text-[15px]">Balance against target</h3>
         <p className="text-xs text-ink3 mt-0.5">
@@ -159,7 +159,7 @@ export function BalanceShareChart({ rows }: { rows: DebtStatus[] }) {
   const largest = Number(withBalance[0].current_balance)
 
   return (
-    <section className="border border-rule mt-4">
+    <section className="border border-rule">
       <header className="px-3 pt-3">
         <h3 className="text-[15px]">Where the balance sits</h3>
         <p className="text-xs text-ink3 mt-0.5">
