@@ -1,0 +1,31 @@
+name: Build the app
+
+# Catches a broken build before Vercel deploys it.
+on:
+  push:
+    branches: [main]
+    paths: ['app/**']
+  pull_request:
+    paths: ['app/**']
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npm run build
+        env:
+          # Build-time only. These are placeholders so the bundle compiles;
+          # the real values come from Vercel's environment variables.
+          VITE_SUPABASE_URL: https://placeholder.supabase.co
+          VITE_SUPABASE_ANON_KEY: placeholder

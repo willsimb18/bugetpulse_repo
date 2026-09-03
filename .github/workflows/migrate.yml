@@ -1,0 +1,37 @@
+name: Apply database migrations
+
+# Only when a migration actually changes. Pushing app code doesn't touch
+# the database.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'db/migrations/**.sql'
+      - 'db/migrate.sh'
+  workflow_dispatch:        # lets you re-run it by hand from the Actions tab
+
+concurrency:
+  group: db-migrate         # never two migrations at once
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install psql
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends postgresql-client
+
+      - name: Apply migrations
+        env:
+          # Repo -> Settings -> Secrets and variables -> Actions -> New secret
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: bash db/migrate.sh
+
+      - name: Show what the database looks like now
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: psql "$SUPABASE_DB_URL" -f db/healthcheck.sql
