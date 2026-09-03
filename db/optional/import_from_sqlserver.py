@@ -188,6 +188,7 @@ def load(pg, src: dict, household: str, dry: bool) -> dict:
     # ---- wage rates. Wages.isCurrent keeps one row per person, so there is
     # no history to import — this seeds a single starting rate per earner and
     # every future raise becomes a new effective-dated row.
+    earner_net: dict[int, Decimal] = {}
     paytype = {p["PayTypeId"]: p["PayType"] for p in src["paytypes"]}
     earliest = min((b["PayDate"] for b in src["budget"]), default=None)
     for w in src["wages"]:
@@ -198,6 +199,14 @@ def load(pg, src: dict, household: str, dry: bool) -> dict:
         eid = earner_id.get(w["UserId"])
         if not eid or not earliest:
             continue
+        # Wages' own arithmetic: rate x hours, less the three deductions.
+        # Kept so paychecks can be attributed to a person below.
+        earner_net[eid] = (
+            Decimal(str(w["WageAmount"] or 0)) * 80
+            - Decimal(str(w["Taxes"] or 0))
+            - Decimal(str(w["Healthcare"] or 0))
+            - Decimal(str(w["Retirement"] or 0))
+        )
         ex(
             """insert into wage_rate (household_id, earner_id, effective_from,
                    hourly_rate, annual_salary, standard_hours,
@@ -369,13 +378,40 @@ def load(pg, src: dict, household: str, dry: bool) -> dict:
                 # Name the gap instead of silently burying it in 'other'.
                 stats["income_kind_unmapped:" + (type_name or "?")] += 1
                 kind = "other"
-            ex(
-                """insert into income (household_id, earner_id, budget_period_id,
-                       received_on, kind, gross_override, notes)
-                   values (%s,null,%s,%s,%s,%s,'Imported from BudgetIncome')""",
-                (household, pid, bi["PayDate"], kind, amt),
-            )
-            stats["income"] += 1
+            # BudgetIncome holds one household figure per pay date with no
+            # earner on it. Wages does have the split, so a paycheck is
+            # apportioned by each person's take-home. Anything that is not a
+            # paycheck -- a deposit, a savings or credit draw, a bonus that
+            # Wages records as zero -- has no basis for a split and stays on
+            # the household.
+            shares: list[tuple[object, object]] = [(None, amt)]
+            total_net = sum(earner_net.values())
+            if kind == "regular" and total_net > 0 and len(earner_net) > 1:
+                shares = []
+                running = Decimal(0)
+                ids = sorted(earner_net)
+                for i, eid in enumerate(ids):
+                    if i == len(ids) - 1:
+                        part = Decimal(str(amt)) - running   # absorbs the rounding
+                    else:
+                        part = (Decimal(str(amt)) * earner_net[eid] / total_net
+                                ).quantize(Decimal("0.01"))
+                        running += part
+                    shares.append((eid, part))
+                stats["income_split_by_earner"] += 1
+
+            for eid, part in shares:
+                if not part:
+                    continue
+                ex(
+                    """insert into income (household_id, earner_id, budget_period_id,
+                           received_on, kind, gross_override, notes)
+                       values (%s,%s,%s,%s,%s,%s,%s)""",
+                    (household, eid, pid, bi["PayDate"], kind, part,
+                     'Imported from BudgetIncome'
+                     + (' — split by pay rate' if eid else '')),
+                )
+                stats["income"] += 1
 
     # ---- budget lines. Every historical row is settled, so amount_due ==
     # amount_paid and status is 'paid'. amount_overridden is TRUE so the

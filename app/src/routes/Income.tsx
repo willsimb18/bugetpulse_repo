@@ -83,7 +83,7 @@ export function Income({ isOwner }: { isOwner: boolean }) {
       <div className="min-w-0">
       <section className="mt-4">
         <div className="flex items-baseline justify-between mb-1">
-          <h3 className="eyebrow">Pay rate history</h3>
+          <h3 className="eyebrow">Current Pay Rate</h3>
           <button className="eyebrow hover:text-ink"
             onClick={() => setShowRates((v) => !v)}
             aria-pressed={showRates}>
@@ -91,7 +91,7 @@ export function Income({ isOwner }: { isOwner: boolean }) {
           </button>
         </div>
         {wages.length === 0 ? (
-          <Empty>No rates on file. Record a raise to set a starting rate.</Empty>
+          <Empty>No rate on file. Record a raise to set a starting rate.</Empty>
         ) : (
           <ul className="border border-rule">
             {wages.map((w, i) => (
@@ -127,8 +127,8 @@ export function Income({ isOwner }: { isOwner: boolean }) {
       </section>
 
       <section className="mt-6">
-        <h3 className="eyebrow mb-1">Paychecks · {THIS_YEAR}</h3>
-        <PaycheckMonths rows={allIncome} />
+        <h3 className="eyebrow mb-1">Paycheck History · {THIS_YEAR}</h3>
+        <PaycheckMonths rows={allIncome} wages={wages} show={showRates} />
       </section>
       </div>
 
@@ -181,7 +181,12 @@ function WageBreakdown({ w, show }: { w: WageRow; show: boolean }) {
   )
 }
 
-function PaycheckMonths({ rows }: { rows: IncomeRow[] }) {
+function PaycheckMonths({ rows, wages, show }: {
+  rows: IncomeRow[]; wages: WageRow[]; show: boolean
+}) {
+  const [open, setOpen] = useState<number | null>(null)
+  const rateFor = (earner: string | null) =>
+    wages.find((w) => w.earner === earner)
   const mine = rows.filter(
     (r) => PAYCHECK_KINDS.has(r.kind) &&
            (r.received_on ?? '').slice(0, 4) === THIS_YEAR)
@@ -205,18 +210,60 @@ function PaycheckMonths({ rows }: { rows: IncomeRow[] }) {
   const byDate = (a: IncomeRow, b: IncomeRow) =>
     (a.received_on ?? '').localeCompare(b.received_on ?? '')
 
-  const Check = ({ c }: { c: IncomeRow }) => (
-    <li className="flex items-baseline justify-between gap-2 py-0.5 text-[12px]">
-      <span className="min-w-0 truncate text-ink3">
-        <span className="num">{fmtDate(c.received_on)}</span>
-        {` · ${c.kind}`}
-        {c.hours ? ` · ${c.hours} hrs` : ''}
-        {Number(c.gross) !== Number(c.net) &&
-          <>{' · gross '}<span className="num">{fmtShort(c.gross)}</span></>}
-      </span>
-      <span className="num shrink-0">{fmt(c.net)}</span>
-    </li>
-  )
+  /*
+   * A cheque, and on click the rate that produced it. The imported figure
+   * is take-home only, so the breakdown is reconstructed from the earner's
+   * wage_rate and shown for what it is: how the rate makes that number,
+   * not deductions recorded against the payment itself.
+   */
+  const Check = ({ c }: { c: IncomeRow }) => {
+    const w = rateFor(c.earner)
+    const isOpen = open === c.id
+    const share = w && Number(w.net_per_period)
+      ? Number(c.net) / Number(w.net_per_period) : 1
+    const scale = (v: number | null | undefined) => Number(v ?? 0) * share
+    return (
+      <li className="text-[12px]">
+        <button className="w-full flex items-baseline justify-between gap-2 py-0.5 text-left"
+          onClick={() => setOpen(isOpen ? null : c.id)}
+          aria-expanded={isOpen} disabled={!w}>
+          <span className="min-w-0 truncate text-ink3">
+            {w && <span className="mr-1" aria-hidden>{isOpen ? '▾' : '▸'}</span>}
+            <span className="num">{fmtDate(c.received_on)}</span>
+            {` · ${c.kind}`}
+            {Number(c.gross) !== Number(c.net) &&
+              <>{' · gross '}<span className="num">{fmtShort(c.gross)}</span></>}
+          </span>
+          <span className="num shrink-0 text-ink">{fmt(c.net)}</span>
+        </button>
+
+        {isOpen && w && (
+          <dl className="grid grid-cols-2 gap-x-3 pl-4 pb-1.5 text-[11px] text-ink3">
+            <dt>Rate</dt>
+            <dd className="num text-right">
+              {show ? `${fmt(w.hourly_rate)} × ${Number(w.standard_hours ?? 0)} hrs` : '••••••'}
+            </dd>
+            <dt>Gross</dt>
+            <dd className="num text-right">{show ? fmt(scale(w.gross_per_period)) : '••••••'}</dd>
+            <dt>Taxes</dt>
+            <dd className="num text-right">{show ? `−${fmt(scale(w.taxes_est))}` : '••••••'}</dd>
+            <dt>Healthcare</dt>
+            <dd className="num text-right">{show ? `−${fmt(scale(w.healthcare_est))}` : '••••••'}</dd>
+            <dt>401K</dt>
+            <dd className="num text-right">{show ? `−${fmt(scale(w.retirement_est))}` : '••••••'}</dd>
+            <dt className="text-ink border-t border-rule pt-0.5">Take-home</dt>
+            <dd className="num text-right text-ink border-t border-rule pt-0.5">{fmt(c.net)}</dd>
+            {Math.abs(share - 1) > 0.005 && (
+              <dd className="col-span-2 pt-1">
+                Scaled to this cheque; the rate on file is the current one.
+              </dd>
+            )}
+            {!show && <dd className="col-span-2 pt-1">Use “Show rates” above to reveal.</dd>}
+          </dl>
+        )}
+      </li>
+    )
+  }
 
   return (
     <div className="space-y-4">
