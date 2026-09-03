@@ -1,0 +1,15 @@
+# Dependencies
+node_modules/
+
+# Build output
+app/dist/
+app/dev-dist/
+
+# Local env — never commit; VITE_* values belong in Vercel env vars
+.env
+.env.local
+.env.*.local
+
+# Editor / OS
+.DS_Store
+.vscode/
