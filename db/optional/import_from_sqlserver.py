@@ -50,7 +50,26 @@ INCOME_TYPE = {
     "Wages": "regular", "Salary": "regular", "Bonus": "bonus",
     "Deposits": "deposit", "Deposit": "deposit", "Tax Refund": "tax_refund",
     "Line Of Credit": "line_of_credit", "LineOfCredit": "line_of_credit",
+    # The names Finance actually stores. Without these everything fell
+    # through to 'other' and the Money-moved-in list was unreadable.
+    "Paychecks": "regular", "Paycheck": "regular",
+    "Bonuses": "bonus",
+    "FromSaving": "from_savings", "FromSavings": "from_savings",
+    "From Saving": "from_savings", "From Savings": "from_savings",
+    # Money paid in by someone else. Not wages, so it stays out of
+    # wage_income while still counting toward net income.
+    "Contribution": "deposit", "Contributions": "deposit",
 }
+
+# LastPayCheckRemBal is not income at all -- it is the balance carried in
+# from the previous period. 01_schema.sql names it directly as
+# budget_period.opening_balance. Recording it as an income row instead put
+# it in the "money moved in" list and left every opening_balance at zero.
+OPENING_BALANCE_TYPE = "lastpaycheckrembal"
+
+
+def is_opening_balance(type_name) -> bool:
+    return (type_name or "").strip().replace(" ", "").lower() == OPENING_BALANCE_TYPE
 
 DEBT_TYPE = {
     "Credit Cards": "credit_card", "Credit Card": "credit_card",
@@ -286,8 +305,21 @@ def load(pg, src: dict, household: str, dry: bool) -> dict:
         stats["debt_detail"] += 1
 
     # ---- budget periods from the distinct pay dates in Budget
+    itype = {i["IncomeTypeId"]: i["IncomeTypeName"] for i in src["incometypes"]}
+
+    def opening_for(bi) -> Decimal:
+        """The LastPayCheckRemBal amount on one BudgetIncome row, in
+        whichever of the three type slots it happens to sit."""
+        total = Decimal(0)
+        for tid, amt in ((bi["IncomeTypeID"], bi["Amount"]),
+                         (bi["IncomeType2ID"], bi["OtherAmount"]),
+                         (bi["IncomeType3ID"], bi["OtherAmount2"])):
+            if tid and amt and is_opening_balance(itype.get(tid)):
+                total += Decimal(amt)
+        return total
+
     paydates = sorted({b["PayDate"] for b in src["budget"] if b["PayDate"]})
-    opening = {bi["PayDate"]: bi for bi in src["budgetincome"]}
+    opening = {bi["PayDate"]: opening_for(bi) for bi in src["budgetincome"]}
     period_id: dict[object, int] = {}
 
     for i, pd in enumerate(paydates):
@@ -296,12 +328,16 @@ def load(pg, src: dict, household: str, dry: bool) -> dict:
         ex(
             """insert into budget_period (household_id, period_start, period_end,
                    pay_date, frequency, label, is_closed, opening_balance)
-               values (%s,%s,%s + %s, %s,'biweekly',%s,true,0)
-               on conflict (household_id, period_start, frequency) do nothing
+               values (%s,%s,%s + %s, %s,'biweekly',%s,true,%s)
+               on conflict (household_id, period_start, frequency) do update
+                 set opening_balance = excluded.opening_balance
                returning id""",
             (household, pd, pd, end, pd,
-             pd.strftime("%b %d, %Y") if hasattr(pd, "strftime") else str(pd)),
+             pd.strftime("%b %d, %Y") if hasattr(pd, "strftime") else str(pd),
+             opening.get(pd, Decimal(0))),
         )
+        if opening.get(pd):
+            stats["opening_balance_carried"] += 1
         row = cur.fetchone()
         if row is None:
             ex("""select id from budget_period
@@ -312,7 +348,6 @@ def load(pg, src: dict, household: str, dry: bool) -> dict:
         stats["budget_period"] += 1
 
     # ---- income: unpivot BudgetIncome's three repeating pairs
-    itype = {i["IncomeTypeId"]: i["IncomeTypeName"] for i in src["incometypes"]}
     for bi in src["budgetincome"]:
         pid = period_id.get(bi["PayDate"])
         for tid, amt in (
@@ -322,12 +357,19 @@ def load(pg, src: dict, household: str, dry: bool) -> dict:
         ):
             if not tid or not amt:
                 continue
+            type_name = (itype.get(tid) or "").strip()
+            if is_opening_balance(type_name):
+                continue          # already carried into opening_balance
+            kind = INCOME_TYPE.get(type_name)
+            if kind is None:
+                # Name the gap instead of silently burying it in 'other'.
+                stats["income_kind_unmapped:" + (type_name or "?")] += 1
+                kind = "other"
             ex(
                 """insert into income (household_id, earner_id, budget_period_id,
                        received_on, kind, gross_override, notes)
                    values (%s,null,%s,%s,%s,%s,'Imported from BudgetIncome')""",
-                (household, pid, bi["PayDate"],
-                 INCOME_TYPE.get((itype.get(tid) or "").strip(), "other"), amt),
+                (household, pid, bi["PayDate"], kind, amt),
             )
             stats["income"] += 1
 
