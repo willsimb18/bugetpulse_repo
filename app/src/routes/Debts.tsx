@@ -54,7 +54,7 @@ export function Debts({ isOwner }: { isOwner: boolean }) {
         there is room for two — the charts stack under the list on a phone
         rather than being squeezed beside it.
       */}
-      <div className="grid gap-x-8 gap-y-6 items-start lg:grid-cols-[minmax(0,1fr)_minmax(0,25rem)]">
+      <div className="grid gap-x-8 gap-y-6 items-start lg:grid-cols-[minmax(0,23rem)_minmax(0,1fr)]">
         <div className="min-w-0">
           <div className="flex flex-wrap gap-2 py-4">
             {(['avalanche', 'snowball'] as Strategy[]).map((s) => (
@@ -142,7 +142,7 @@ export function Debts({ isOwner }: { isOwner: boolean }) {
         </div>
 
         {rows.length > 0 && (
-          <aside className="min-w-0 space-y-4 lg:pt-4">
+          <aside className="min-w-0 grid gap-4 items-start lg:grid-cols-2 lg:pt-4">
             <UtilizationChart rows={rows} />
             <BalanceShareChart rows={rows} />
           </aside>

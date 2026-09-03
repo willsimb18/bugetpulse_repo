@@ -91,11 +91,9 @@ export function UtilizationChart({ rows }: { rows: DebtStatus[] }) {
               onMouseEnter={() => setHover(d.id)}
               onMouseLeave={() => setHover(null)}
             >
-              <div className="flex items-baseline justify-between gap-3">
+              <div className="flex items-baseline justify-between gap-2">
                 <span className="text-[13px] truncate min-w-0">{d.name}</span>
-                <span className="num text-xs text-ink3 shrink-0">
-                  {fmt(d.current_balance)} of {fmt(d.credit_limit)}
-                </span>
+                <span className="num text-xs shrink-0">{pct(u)}</span>
               </div>
 
               {/* Track. Target is a tick — a different shape, not a second hue. */}
@@ -112,18 +110,20 @@ export function UtilizationChart({ rows }: { rows: DebtStatus[] }) {
               </div>
 
               {/* Over-target never rides on colour alone. */}
-              <p className="mt-1 text-[11px]">
-                <span className="num">{pct(u)} used</span>
+              <p className="mt-1 text-[11px] leading-snug">
+                <span className="num text-ink3">
+                  {fmt(d.current_balance)} of {fmt(d.credit_limit)}
+                </span>
                 {over ? (
-                  <span className="text-rust"> · {fmt(d.amount_over_target)} over target</span>
+                  <span className="text-rust"> · {fmt(d.amount_over_target)} over</span>
                 ) : (
                   <span className="text-ink3"> · within target</span>
                 )}
-                {d.apr != null && (
-                  <span className="text-ink3"> · {(Number(d.apr) * 100).toFixed(2)}% APR</span>
-                )}
-                {hover === d.id && d.balance_as_of && (
-                  <span className="text-ink3"> · as of {fmtDate(d.balance_as_of)}</span>
+                {hover === d.id && (
+                  <span className="text-ink3">
+                    {d.apr != null && ` · ${(Number(d.apr) * 100).toFixed(2)}% APR`}
+                    {d.balance_as_of && ` · as of ${fmtDate(d.balance_as_of)}`}
+                  </span>
                 )}
               </p>
             </li>
@@ -131,10 +131,11 @@ export function UtilizationChart({ rows }: { rows: DebtStatus[] }) {
         })}
       </ul>
 
-      <p className="eyebrow px-3 py-2 border-t border-rule normal-case tracking-normal">
-        <span className="inline-block w-3 h-2 bg-slate align-middle mr-1" /> within target
-        <span className="inline-block w-3 h-2 bg-rust align-middle ml-3 mr-1" /> over target
-        <span className="inline-block w-0.5 h-3 bg-ink align-middle ml-3 mr-1" /> target
+      <p className="eyebrow px-3 py-2 border-t border-rule normal-case tracking-normal
+                    flex flex-wrap gap-x-3 gap-y-1 items-center">
+        <span><span className="inline-block w-3 h-2 bg-slate align-middle mr-1" /> within target</span>
+        <span><span className="inline-block w-3 h-2 bg-rust align-middle mr-1" /> over target</span>
+        <span><span className="inline-block w-0.5 h-3 bg-ink align-middle mr-1" /> target</span>
       </p>
     </section>
   )
