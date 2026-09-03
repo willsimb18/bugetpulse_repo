@@ -192,15 +192,45 @@ def load(pg, src: dict, household: str, dry: bool) -> dict:
     acct: dict[tuple[str, int], int] = {}
     freq_name = {f["FrequencyId"]: f["Frequence"] for f in src["freqs"]}
 
+    def schedule_for(f, due, day=None):
+        """(due_day, anchor_date, is_always_due) for one source row.
+
+        account_schedule_present requires one of the three for any frequency
+        other than per_paycheck/one_time. Finance allows a bill with no
+        DueDate at all, and Semi-Monthly was never mapped here, so both used
+        to produce a row the constraint rejects. Fall back instead of
+        aborting the whole load, and count each fallback so the dry run
+        shows how much of the catalog was guessed at.
+        """
+        if f in ("per_paycheck", "one_time"):
+            return None, None, False
+        if f in ("weekly", "biweekly"):
+            if due:
+                return None, due, False
+            if earliest:
+                # No date on the source row. Anchor to the first pay date so
+                # the cadence is still real rather than inventing one.
+                stats["schedule_anchored_to_first_paydate"] += 1
+                return None, earliest, False
+        else:
+            d = day or (due.day if due else None)
+            if d:
+                return d, None, False
+        # Nothing to schedule from: treat it as due in every period, which is
+        # what CTE_AlwaysDueList did for these by hand.
+        stats["schedule_defaulted_always_due"] += 1
+        return None, None, True
+
     def add_account(kind, legacy_id, name, cat_legacy, amount, active,
-                    frequency, due_day=None, anchor=None):
+                    frequency, due_day=None, anchor=None, always=False):
         name = (name or "").strip()
         if not name:
             return
         ex(
             """insert into account (household_id, name, kind, category_id, frequency,
-                   default_amount, due_day, anchor_date, is_active, amount_mode)
-               values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                   default_amount, due_day, anchor_date, is_active, amount_mode,
+                   is_always_due)
+               values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                on conflict (household_id, name, kind) do update
                  set default_amount = excluded.default_amount
                returning id""",
@@ -208,19 +238,18 @@ def load(pg, src: dict, household: str, dry: bool) -> dict:
              amount or 0, due_day, anchor, bool(active),
              # Your Excel rule was carry-forward for everything; debts and
              # savings are steadier, so they start fixed. Change per bill later.
-             "carry_forward" if kind in ("bill", "expense") else "fixed"),
+             "carry_forward" if kind in ("bill", "expense") else "fixed",
+             bool(always)),
         )
         acct[(kind, legacy_id)] = cur.fetchone()[0]
         stats[f"account_{kind}"] += 1
 
     for b in src["bills"]:
         f = freq(freq_name.get(b["FrequencyId"]), "monthly")
-        due = b["DueDate"]
+        due_day, anchor, always = schedule_for(f, b["DueDate"])
         add_account(
             "bill", b["BillId"], b["BillName"], b["CategoryTypeId"], b["Amount"],
-            b["isActive"], f,
-            due_day=due.day if (due and f in ("monthly", "quarterly", "semiannual", "annual")) else None,
-            anchor=due if (due and f in ("weekly", "biweekly", "one_time")) else None,
+            b["isActive"], f, due_day=due_day, anchor=anchor, always=always,
         )
 
     for e in src["expenses"]:
@@ -235,9 +264,10 @@ def load(pg, src: dict, household: str, dry: bool) -> dict:
 
     dtype = {d["DebtTypeId"]: d["TypeName"] for d in src["debttypes"]}
     for d in src["debts"]:
+        due_day, anchor, always = schedule_for("monthly", None, d["DayDueOn"] or None)
         add_account("debt", d["DebtId"], d["Account"], d["CategoryTypeId"],
                     d["MonthlyPaymentAmount"], d["isActive"], "monthly",
-                    due_day=d["DayDueOn"] or None)
+                    due_day=due_day, anchor=anchor, always=always)
         aid = acct.get(("debt", d["DebtId"]))
         if not aid:
             continue
@@ -404,6 +434,9 @@ def main() -> int:
         try:
             stats = load(pg, src, os.environ["HOUSEHOLD_ID"], args.dry_run)
         finally:
+            # A failed load leaves the transaction aborted, so every statement
+            # below would fail too and bury the error that actually mattered.
+            pg.rollback()
             pg.execute("alter table budget_line enable trigger t_budget_line_audit")
             pg.execute("alter table account     enable trigger t_account_audit")
             pg.execute("alter table income      enable trigger t_income_audit")
