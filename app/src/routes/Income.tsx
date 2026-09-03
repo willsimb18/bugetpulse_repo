@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { Empty, Err } from '../components/Chrome'
 import { fmt, fmtDate } from '../lib/format'
 import type { IncomeRow, WageRow } from '../lib/types'
+import { PaychecksByMonth } from '../components/PaychecksByMonth'
 
 export function Income({ isOwner }: { isOwner: boolean }) {
   const [checks, setChecks] = useState<IncomeRow[]>([])
@@ -12,6 +13,7 @@ export function Income({ isOwner }: { isOwner: boolean }) {
   const [showRaise, setShowRaise] = useState(false)
   const [showCheck, setShowCheck] = useState(false)
   const [periods, setPeriods] = useState<{ id: number; label: string | null; pay_date: string }[]>([])
+  const [allIncome, setAllIncome] = useState<IncomeRow[]>([])
 
   const load = useCallback(async () => {
     const [c, w, e] = await Promise.all([
@@ -27,6 +29,11 @@ export function Income({ isOwner }: { isOwner: boolean }) {
       .from('budget_period').select('id, label, pay_date')
       .eq('is_closed', false).order('pay_date', { ascending: false }).limit(12)
     setPeriods((p ?? []) as typeof periods)
+
+    // The list shows the last 40; the chart needs every month there is.
+    const { data: all } = await supabase
+      .from('v_income_history').select('*').order('received_on')
+    setAllIncome((all ?? []) as IncomeRow[])
   }, [])
 
   useEffect(() => { void load() }, [load])
@@ -68,6 +75,8 @@ export function Income({ isOwner }: { isOwner: boolean }) {
         />
       )}
 
+      <div className="grid gap-x-6 gap-y-6 items-start lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+      <div className="min-w-0">
       <section className="mt-4">
         <h3 className="eyebrow mb-1">Pay rate history</h3>
         {wages.length === 0 ? (
@@ -119,6 +128,12 @@ export function Income({ isOwner }: { isOwner: boolean }) {
           </ul>
         )}
       </section>
+      </div>
+
+      <div className="min-w-0 lg:mt-4">
+        <PaychecksByMonth rows={allIncome} />
+      </div>
+      </div>
     </>
   )
 }
