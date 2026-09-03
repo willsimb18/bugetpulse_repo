@@ -1,28 +1,31 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { Empty, Err } from '../components/Chrome'
-import { fmt, fmtDate } from '../lib/format'
+import { fmt, fmtDate, fmtShort } from '../lib/format'
+import { monthLabel } from '../lib/chart'
 import type { IncomeRow, WageRow } from '../lib/types'
 import { PaychecksByMonth } from '../components/PaychecksByMonth'
 
+const THIS_YEAR = String(new Date().getFullYear())
+
+/* Only the two kinds that are actually a paycheck. */
+const PAYCHECK_KINDS = new Set(['regular', 'bonus'])
+
 export function Income({ isOwner }: { isOwner: boolean }) {
-  const [checks, setChecks] = useState<IncomeRow[]>([])
   const [wages, setWages] = useState<WageRow[]>([])
   const [earners, setEarners] = useState<{ id: number; display_name: string }[]>([])
   const [err, setErr] = useState<string | null>(null)
   const [showRaise, setShowRaise] = useState(false)
   const [showCheck, setShowCheck] = useState(false)
+  const [showRates, setShowRates] = useState(false)
   const [periods, setPeriods] = useState<{ id: number; label: string | null; pay_date: string }[]>([])
   const [allIncome, setAllIncome] = useState<IncomeRow[]>([])
 
   const load = useCallback(async () => {
-    const [c, w, e] = await Promise.all([
-      supabase.from('v_income_history').select('*')
-        .order('received_on', { ascending: false }).limit(40),
+    const [w, e] = await Promise.all([
       supabase.from('v_wage_history').select('*').order('effective_from', { ascending: false }),
       supabase.from('earner').select('id, display_name').eq('is_active', true).order('display_name'),
     ])
-    setChecks((c.data ?? []) as IncomeRow[])
     setWages((w.data ?? []) as WageRow[])
     setEarners((e.data ?? []) as { id: number; display_name: string }[])
     const { data: p } = await supabase
@@ -78,7 +81,14 @@ export function Income({ isOwner }: { isOwner: boolean }) {
       <div className="grid gap-x-6 gap-y-6 items-start lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
       <div className="min-w-0">
       <section className="mt-4">
-        <h3 className="eyebrow mb-1">Pay rate history</h3>
+        <div className="flex items-baseline justify-between mb-1">
+          <h3 className="eyebrow">Pay rate history</h3>
+          <button className="eyebrow hover:text-ink"
+            onClick={() => setShowRates((v) => !v)}
+            aria-pressed={showRates}>
+            {showRates ? 'Hide' : 'Show'} rates
+          </button>
+        </div>
         {wages.length === 0 ? (
           <Empty>No rates on file. Record a raise to set a starting rate.</Empty>
         ) : (
@@ -93,7 +103,9 @@ export function Income({ isOwner }: { isOwner: boolean }) {
                   </span>
                 </span>
                 <span className="text-right">
-                  <span className="num block text-[15px]">{fmt(w.hourly_rate)}/hr</span>
+                  <span className="num block text-[15px]">
+                    {showRates ? `${fmt(w.hourly_rate)}/hr` : '••••••'}
+                  </span>
                   {w.pct_increase != null && (
                     <span className="num text-xs text-moss">+{Number(w.pct_increase).toFixed(2)}%</span>
                   )}
@@ -105,28 +117,8 @@ export function Income({ isOwner }: { isOwner: boolean }) {
       </section>
 
       <section className="mt-6">
-        <h3 className="eyebrow mb-1">Paychecks</h3>
-        {checks.length === 0 ? (
-          <Empty>No paychecks recorded yet.</Empty>
-        ) : (
-          <ul className="border border-rule">
-            {checks.map((c) => (
-              <li key={c.id} className="bar-row flex items-center gap-3 px-3 py-2.5">
-                <span className="flex-1 min-w-0">
-                  <span className="block text-[15px] truncate">
-                    {c.earner ?? 'Household'}
-                    <span className="text-ink3"> · {c.kind.replace(/_/g, ' ')}</span>
-                  </span>
-                  <span className="eyebrow">
-                    {fmtDate(c.received_on)}
-                    {c.hours ? ` · ${c.hours} hrs` : ''} · gross {fmt(c.gross)}
-                  </span>
-                </span>
-                <span className="num text-[15px]">{fmt(c.net)}</span>
-              </li>
-            ))}
-          </ul>
-        )}
+        <h3 className="eyebrow mb-1">Paychecks · {THIS_YEAR}</h3>
+        <PaycheckMonths rows={allIncome} />
       </section>
       </div>
 
@@ -135,6 +127,75 @@ export function Income({ isOwner }: { isOwner: boolean }) {
       </div>
       </div>
     </>
+  )
+}
+
+/*
+ * Paychecks for the current year only, and only the kinds that are
+ * actually a paycheck: regular and bonus. Grouped by month, then by who
+ * was paid, each level carrying its own total.
+ */
+function PaycheckMonths({ rows }: { rows: IncomeRow[] }) {
+  const mine = rows.filter(
+    (r) => PAYCHECK_KINDS.has(r.kind) &&
+           (r.received_on ?? '').slice(0, 4) === THIS_YEAR)
+
+  if (mine.length === 0) {
+    return <Empty>No paychecks recorded in {THIS_YEAR}.</Empty>
+  }
+
+  const months = new Map<string, IncomeRow[]>()
+  for (const r of mine) {
+    const key = `${(r.received_on ?? '').slice(0, 7)}-01`
+    months.set(key, [...(months.get(key) ?? []), r])
+  }
+  const ordered = [...months.entries()].sort((a, b) => b[0].localeCompare(a[0]))
+  const sum = (xs: IncomeRow[]) => xs.reduce((t, r) => t + Number(r.net ?? 0), 0)
+
+  return (
+    <div className="space-y-4">
+      {ordered.map(([month, items]) => {
+        const byEarner = new Map<string, IncomeRow[]>()
+        for (const r of items) {
+          const who = r.earner ?? 'Household'
+          byEarner.set(who, [...(byEarner.get(who) ?? []), r])
+        }
+        return (
+          <div key={month}>
+            <div className="flex items-baseline justify-between pb-1">
+              <h4 className="eyebrow">{monthLabel(month)}</h4>
+              <span className="num text-xs text-ink3">{fmtShort(sum(items))}</span>
+            </div>
+            <ul className="border border-rule">
+              {[...byEarner.entries()].sort().map(([who, checks]) => (
+                <li key={who} className="bar-row px-3 py-2.5">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className="text-[15px] truncate min-w-0">{who}</span>
+                    <span className="num text-[15px] shrink-0">{fmt(sum(checks))}</span>
+                  </div>
+                  <ul className="mt-1">
+                    {checks
+                      .sort((a, b) => (a.received_on ?? '').localeCompare(b.received_on ?? ''))
+                      .map((c) => (
+                        <li key={c.id}
+                          className="flex items-baseline justify-between gap-2 py-0.5 text-[12px]">
+                          <span className="min-w-0 truncate text-ink3">
+                            <span className="num">{fmtDate(c.received_on)}</span>
+                            {c.kind !== 'regular' && ` · ${c.kind}`}
+                            {c.hours ? ` · ${c.hours} hrs` : ''}
+                            {' · gross '}<span className="num">{fmtShort(c.gross)}</span>
+                          </span>
+                          <span className="num shrink-0">{fmt(c.net)}</span>
+                        </li>
+                    ))}
+                  </ul>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )
+      })}
+    </div>
   )
 }
 
