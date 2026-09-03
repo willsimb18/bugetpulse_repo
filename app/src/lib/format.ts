@@ -39,6 +39,7 @@ export const DEBT_TYPE_LABEL: Record<string, string> = {
   credit_card: 'Credit cards',
   auto_loan: 'Auto loans',
   student_loan: 'Student loans',
+  line_of_credit: 'Lines of credit',
   personal_loan: 'Personal loans',
   mortgage: 'Mortgage',
   other: 'Other',
@@ -46,5 +47,6 @@ export const DEBT_TYPE_LABEL: Record<string, string> = {
 
 // Fixed display order, so a group never changes position as balances move.
 export const DEBT_TYPE_ORDER = [
-  'credit_card', 'auto_loan', 'student_loan', 'personal_loan', 'mortgage', 'other',
+  'credit_card', 'line_of_credit', 'auto_loan', 'student_loan',
+  'personal_loan', 'mortgage', 'other',
 ]

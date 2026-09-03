@@ -76,6 +76,10 @@ DEBT_TYPE = {
     "Auto Loans": "auto_loan", "Auto Loan": "auto_loan",
     "Mortgage": "mortgage", "Personal Loans": "personal_loan",
     "Student Loans": "student_loan",
+    # Added in migration 11. Without both halves -- the enum value and this
+    # entry -- a line of credit silently imported as 'other'.
+    "Line Of Credit": "line_of_credit", "LineOfCredit": "line_of_credit",
+    "Lines Of Credit": "line_of_credit", "Line of Credit": "line_of_credit",
 }
 
 

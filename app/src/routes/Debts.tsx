@@ -64,7 +64,7 @@ export function Debts({ isOwner }: { isOwner: boolean }) {
         </div>
 
         <label className="flex items-center gap-1.5 shrink-0 pb-1">
-          <span className="eyebrow">Sub type</span>
+          <span className="eyebrow">Debt type</span>
           <select
             className="border border-rule bg-white px-2 py-1 text-xs"
             value={subType}
