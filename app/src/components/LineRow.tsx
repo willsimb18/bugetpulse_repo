@@ -8,10 +8,12 @@ const dot: Record<string, string> = {
 }
 
 export function LineRow({
-  line, isOwner, onChange, onError,
+  line, isOwner, editable, onChange, onError,
 }: {
   line: BudgetLine
   isOwner: boolean
+  /** False on a period that is not the one we are currently in. */
+  editable: boolean
   onChange: () => void
   onError: (m: string | null) => void
 }) {
@@ -79,7 +81,15 @@ export function LineRow({
 
       {open && (
         <div className="px-3 pb-3 pt-1 flex flex-wrap items-end gap-2">
-          {isOwner ? (
+          {isOwner && !editable ? (
+            <p className="text-xs text-ink3">
+              Amounts can only be changed during the pay period they belong to.
+              {line.last_paid_amount != null && (
+                <> This one last cost <span className="num">{fmt(line.last_paid_amount)}</span>
+                  {line.last_paid_on && ` on ${fmtDate(line.last_paid_on)}`}.</>
+              )}
+            </p>
+          ) : isOwner ? (
             <>
               <label className="flex-1 min-w-[8rem]">
                 <span className="eyebrow block mb-1">

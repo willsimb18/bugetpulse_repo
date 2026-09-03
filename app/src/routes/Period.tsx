@@ -97,6 +97,14 @@ export function Period({ isOwner }: { isOwner: boolean }) {
 
   if (!current) return <Empty>No pay periods yet. Generate them from the Bills tab.</Empty>
 
+  // Amounts belong to the period they were set in. Once you have navigated
+  // off the period you are actually living in, the figures are history --
+  // editing them there rewrites what a past fortnight cost, and a future
+  // period gets its amounts from the account when it materialises anyway.
+  const today = new Date().toISOString().slice(0, 10)
+  const inThisPeriod = current.period_start <= today && today <= current.period_end
+  const editable = inThisPeriod && !current.is_closed
+
   const left = Number(summary?.remaining_due ?? 0)
 
   return (
@@ -142,6 +150,8 @@ export function Period({ isOwner }: { isOwner: boolean }) {
         <>
           <div className="pt-4">
             <button className={`btn ${addingLine ? 'bg-ink text-paper border-ink' : ''}`}
+              disabled={!editable}
+              title={editable ? undefined : 'Only the current pay period can be changed'}
               onClick={() => setAddingLine((a) => !a)}>
               {addingLine ? 'Cancel' : '+ One-off expense'}
             </button>
@@ -169,7 +179,8 @@ export function Period({ isOwner }: { isOwner: boolean }) {
             </div>
             <ul className="border border-rule">
               {grouped.get(kind)!.map((l) => (
-                <LineRow key={l.id} line={l} isOwner={isOwner} onChange={reload} onError={setErr} />
+                <LineRow key={l.id} line={l} isOwner={isOwner} editable={editable}
+                  onChange={reload} onError={setErr} />
               ))}
             </ul>
           </section>
