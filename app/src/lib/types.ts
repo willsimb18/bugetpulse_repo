@@ -137,4 +137,12 @@ export interface WageRow {
   rate_change: number | null
   pct_increase: number | null
   note: string | null
+  // Added in migration 13 — the Wages tab's own breakdown.
+  earner_id: number
+  standard_hours: number | null
+  taxes_est: number | null
+  healthcare_est: number | null
+  retirement_est: number | null
+  gross_per_period: number | null
+  net_per_period: number | null
 }

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { Fragment, useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { Empty, Err } from '../components/Chrome'
 import { fmt, fmtDate, fmtShort } from '../lib/format'
@@ -18,6 +18,7 @@ export function Income({ isOwner }: { isOwner: boolean }) {
   const [showRaise, setShowRaise] = useState(false)
   const [showCheck, setShowCheck] = useState(false)
   const [showRates, setShowRates] = useState(false)
+  const [openRate, setOpenRate] = useState<number | null>(null)
   const [periods, setPeriods] = useState<{ id: number; label: string | null; pay_date: string }[]>([])
   const [allIncome, setAllIncome] = useState<IncomeRow[]>([])
 
@@ -94,22 +95,31 @@ export function Income({ isOwner }: { isOwner: boolean }) {
         ) : (
           <ul className="border border-rule">
             {wages.map((w, i) => (
-              <li key={i} className="bar-row flex items-center gap-3 px-3 py-2.5">
-                <span className="flex-1 min-w-0">
-                  <span className="block text-[15px]">{w.earner}</span>
-                  <span className="eyebrow">
-                    from {fmtDate(w.effective_from)}
-                    {w.note && ` · ${w.note}`}
+              <li key={i} className="bar-row">
+                <button className="w-full flex items-center gap-3 px-3 py-2.5 text-left"
+                  onClick={() => setOpenRate(openRate === i ? null : i)}
+                  aria-expanded={openRate === i}>
+                  <span className="flex-1 min-w-0">
+                    <span className="block text-[15px]">
+                      <span className="text-ink3 mr-1" aria-hidden>{openRate === i ? '▾' : '▸'}</span>
+                      {w.earner}
+                    </span>
+                    <span className="eyebrow">
+                      from {fmtDate(w.effective_from)}
+                      {w.note && ` · ${w.note}`}
+                    </span>
                   </span>
-                </span>
-                <span className="text-right">
-                  <span className="num block text-[15px]">
-                    {showRates ? `${fmt(w.hourly_rate)}/hr` : '••••••'}
+                  <span className="text-right">
+                    <span className="num block text-[15px]">
+                      {showRates ? `${fmt(w.hourly_rate)}/hr` : '••••••'}
+                    </span>
+                    {w.pct_increase != null && (
+                      <span className="num text-xs text-moss">+{Number(w.pct_increase).toFixed(2)}%</span>
+                    )}
                   </span>
-                  {w.pct_increase != null && (
-                    <span className="num text-xs text-moss">+{Number(w.pct_increase).toFixed(2)}%</span>
-                  )}
-                </span>
+                </button>
+
+                {openRate === i && <WageBreakdown w={w} show={showRates} />}
               </li>
             ))}
           </ul>
@@ -135,6 +145,42 @@ export function Income({ isOwner }: { isOwner: boolean }) {
  * actually a paycheck: regular and bonus. Grouped by month, then by who
  * was paid, each level carrying its own total.
  */
+/*
+ * Finance's Wages tab, per person: rate x hours, less taxes, healthcare
+ * and 401K, giving the take-home the spreadsheet showed in its Net
+ * column. All of it came across in the import; migration 13 is what
+ * finally exposes it on v_wage_history.
+ */
+function WageBreakdown({ w, show }: { w: WageRow; show: boolean }) {
+  const mask = (v: number | null | undefined) => (show ? fmt(v) : '••••••')
+  const rows: [string, string][] = [
+    ['Rate', show ? `${fmt(w.hourly_rate)} × ${Number(w.standard_hours ?? 0)} hrs` : '••••••'],
+    ['Gross a period', mask(w.gross_per_period)],
+    ['Taxes', mask(w.taxes_est)],
+    ['Healthcare', mask(w.healthcare_est)],
+    ['401K', mask(w.retirement_est)],
+  ]
+  return (
+    <div className="px-3 pb-3">
+      <dl className="text-xs grid grid-cols-2 gap-x-4 gap-y-0.5 text-ink3">
+        {rows.map(([k, v]) => (
+          <Fragment key={k}>
+            <dt>{k}</dt>
+            <dd className="num text-right text-ink">{v}</dd>
+          </Fragment>
+        ))}
+        <dt className="pt-1 border-t border-rule text-ink">Take-home a period</dt>
+        <dd className="num text-right pt-1 border-t border-rule text-ink">
+          {mask(w.net_per_period)}
+        </dd>
+      </dl>
+      {!show && (
+        <p className="text-[11px] text-ink3 mt-1">Use “Show rates” above to reveal.</p>
+      )}
+    </div>
+  )
+}
+
 function PaycheckMonths({ rows }: { rows: IncomeRow[] }) {
   const mine = rows.filter(
     (r) => PAYCHECK_KINDS.has(r.kind) &&
@@ -165,7 +211,8 @@ function PaycheckMonths({ rows }: { rows: IncomeRow[] }) {
         <span className="num">{fmtDate(c.received_on)}</span>
         {` · ${c.kind}`}
         {c.hours ? ` · ${c.hours} hrs` : ''}
-        {' · gross '}<span className="num">{fmtShort(c.gross)}</span>
+        {Number(c.gross) !== Number(c.net) &&
+          <>{' · gross '}<span className="num">{fmtShort(c.gross)}</span></>}
       </span>
       <span className="num shrink-0">{fmt(c.net)}</span>
     </li>
@@ -175,9 +222,9 @@ function PaycheckMonths({ rows }: { rows: IncomeRow[] }) {
     <div className="space-y-4">
       {!attributed && (
         <p className="text-xs text-ink3">
-          Imported paychecks aren’t attributed to a person — Finance’s
-          BudgetIncome recorded an amount per pay date, not who earned it.
-          Paychecks recorded from here on will name the earner.
+          Imported paychecks are take-home for the household, not per person:
+          Finance’s BudgetIncome recorded one amount per pay date, with no
+          earner and no gross. Paychecks recorded from here on carry both.
         </p>
       )}
 
@@ -219,7 +266,9 @@ function PaycheckMonths({ rows }: { rows: IncomeRow[] }) {
                     </span>
                     <span className="text-right shrink-0">
                       <span className="num block text-[15px]">{fmt(c.net)}</span>
-                      <span className="num text-xs text-ink3">gross {fmtShort(c.gross)}</span>
+                      {Number(c.gross) !== Number(c.net) && (
+                        <span className="num text-xs text-ink3">gross {fmtShort(c.gross)}</span>
+                      )}
                     </span>
                   </div>
                 </li>
