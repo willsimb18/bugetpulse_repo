@@ -6,6 +6,7 @@ import type { DebtStatus } from '../lib/types'
 import { NewAccount } from '../components/NewAccount'
 import { DebtBalanceForm } from '../components/DebtBalanceForm'
 import { DebtTermsForm } from '../components/DebtTermsForm'
+import { BalanceShareChart, UtilizationChart } from '../components/DebtCharts'
 
 type Strategy = 'avalanche' | 'snowball'
 
@@ -65,6 +66,17 @@ export function Debts({ isOwner }: { isOwner: boolean }) {
       )}
 
       {sorted.length === 0 && !adding && <Empty>No debts tracked yet.</Empty>}
+
+      {rows.length > 0 && (
+        <>
+          <UtilizationChart rows={rows} />
+          <BalanceShareChart rows={rows} />
+        </>
+      )}
+
+      <h3 className="text-[15px] pt-6 pb-2">
+        {strategy === 'avalanche' ? 'Pay off highest rate first' : 'Pay off smallest balance first'}
+      </h3>
 
       <ol className="border border-rule">
         {sorted.map((d, i) => {

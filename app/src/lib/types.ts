@@ -111,6 +111,8 @@ export interface DebtStatus {
   change_since_last: number | null
   utilization: number | null
   paid_off_pct: number | null
+  target_utilization: number | null
+  amount_over_target: number | null
   avalanche_rank: number
   snowball_rank: number
 }

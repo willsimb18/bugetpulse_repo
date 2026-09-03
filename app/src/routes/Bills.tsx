@@ -16,6 +16,7 @@ export function Bills({ isOwner }: { isOwner: boolean }) {
   const [err, setErr] = useState<string | null>(null)
   const [openId, setOpenId] = useState<number | null>(null)
   const [showInactive, setShowInactive] = useState(false)
+  const [kindFilter, setKindFilter] = useState<AccountKind | 'all'>('all')
   const [busy, setBusy] = useState(false)
   const [adding, setAdding] = useState<AccountKind | null>(null)
 
@@ -36,17 +37,49 @@ export function Bills({ isOwner }: { isOwner: boolean }) {
     else void load()
   }
 
-  const visible = rows.filter((r) => showInactive || r.is_active)
+  const visible = rows.filter(
+    (r) => (showInactive || r.is_active) && (kindFilter === 'all' || r.kind === kindFilter),
+  )
+
+  // Fixed order, so a section never jumps position when another empties.
+  const KIND_ORDER: AccountKind[] = ['bill', 'expense', 'debt', 'saving']
+  const groups = KIND_ORDER
+    .map((kind) => ({ kind, items: visible.filter((a) => a.kind === kind) }))
+    .filter((g) => g.items.length > 0)
+
+  // Counts come off the unfiltered rows, so the dropdown can say what is
+  // behind an option you haven't picked yet.
+  const countOf = (k: AccountKind) =>
+    rows.filter((r) => (showInactive || r.is_active) && r.kind === k).length
 
   return (
     <>
-      <div className="flex items-baseline justify-between pt-5 pb-2">
-        <h2 className="text-lg font-medium">Bills &amp; accounts</h2>
-        <label className="eyebrow flex items-center gap-1.5 cursor-pointer">
-          <input type="checkbox" checked={showInactive}
-            onChange={(e) => setShowInactive(e.target.checked)} />
-          Show inactive
-        </label>
+      <div className="flex items-baseline justify-between gap-3 pt-5 pb-2">
+        <h2 className="text-lg font-medium">Bills &amp; Accounts</h2>
+
+        <div className="flex items-center gap-3 shrink-0">
+          <label className="flex items-center gap-1.5">
+            <span className="eyebrow">Type</span>
+            <select
+              className="border border-rule bg-white px-2 py-1 text-xs"
+              value={kindFilter}
+              onChange={(e) => setKindFilter(e.target.value as AccountKind | 'all')}
+            >
+              <option value="all">
+                All ({KIND_ORDER.reduce((t, k) => t + countOf(k), 0)})
+              </option>
+              {KIND_ORDER.map((k) => (
+                <option key={k} value={k}>{KIND_LABEL[k]} ({countOf(k)})</option>
+              ))}
+            </select>
+          </label>
+
+          <label className="eyebrow flex items-center gap-1.5 cursor-pointer">
+            <input type="checkbox" checked={showInactive}
+              onChange={(e) => setShowInactive(e.target.checked)} />
+            Show inactive
+          </label>
+        </div>
       </div>
 
       {isOwner && (
@@ -67,10 +100,24 @@ export function Bills({ isOwner }: { isOwner: boolean }) {
           onCancel={() => setAdding(null)}
           onDone={() => { setAdding(null); void load() }} />
       )}
-      {visible.length === 0 && <Empty>No accounts yet.</Empty>}
+      {visible.length === 0 && (
+        <Empty>
+          {kindFilter === 'all'
+            ? 'No accounts yet.'
+            : `No ${KIND_LABEL[kindFilter].toLowerCase()} to show.`}
+        </Empty>
+      )}
 
+      {groups.map((g) => (
+      <section key={g.kind} className="mb-5">
+        <div className="flex items-baseline justify-between pb-1">
+          <h3 className="eyebrow">{KIND_LABEL[g.kind]}</h3>
+          <span className="num text-xs text-ink3">
+            {g.items.length} · {fmt(g.items.reduce((t, a) => t + Number(a.default_amount), 0))}
+          </span>
+        </div>
       <ul className="border border-rule">
-        {visible.map((a) => (
+        {g.items.map((a) => (
           <li key={a.id} className="bar-row">
             <button
               onClick={() => setOpenId(openId === a.id ? null : a.id)}
@@ -151,6 +198,8 @@ export function Bills({ isOwner }: { isOwner: boolean }) {
           </li>
         ))}
       </ul>
+      </section>
+      ))}
     </>
   )
 }
