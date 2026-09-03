@@ -5,10 +5,11 @@ node_modules/
 app/dist/
 app/dev-dist/
 
-# Local env — never commit; VITE_* values belong in Vercel env vars
+# Local env — never commit; VITE_* values belong in Vercel env vars.
+# Covers .env, .env.dev, .env.prod, .env.local ... but keeps the template.
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
 
 # Editor / OS
 .DS_Store
