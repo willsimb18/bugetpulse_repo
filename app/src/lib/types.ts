@@ -74,6 +74,11 @@ export interface BudgetLine {
   paid_by: string | null
   funds_held: boolean
   is_manual: boolean
+  // From v_budget_line_detail (migration 14): the previous period in which
+  // this account was settled. Null on a first-ever or manual line.
+  last_paid_amount: number | null
+  last_paid_on: string | null
+  last_paid_period: string | null
 }
 
 export interface AccountAdmin {

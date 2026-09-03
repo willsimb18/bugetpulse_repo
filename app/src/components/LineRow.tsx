@@ -43,12 +43,18 @@ export function LineRow({
           <span className={`block truncate text-[15px] ${paid ? 'text-ink3 line-through' : ''}`}>
             {line.name}
           </span>
-          <span className="eyebrow">
+          <span className="eyebrow block">
             {fmtDate(line.due_date)}
             {u === 'overdue' && !paid && <span className="text-rust"> · overdue</span>}
             {line.status === 'partial' && <span className="text-amber"> · part paid</span>}
             {line.amount_overridden && <span> · edited</span>}
           </span>
+          {line.last_paid_amount != null && (
+            <span className="eyebrow block normal-case tracking-normal">
+              last paid <span className="num">{fmt(line.last_paid_amount)}</span>
+              {line.last_paid_on && ` on ${fmtDate(line.last_paid_on)}`}
+            </span>
+          )}
         </button>
 
         <span className={`num text-[15px] shrink-0 ${paid ? 'text-ink3' : ''}`}>
@@ -76,7 +82,14 @@ export function LineRow({
           {isOwner ? (
             <>
               <label className="flex-1 min-w-[8rem]">
-                <span className="eyebrow block mb-1">Amount this period</span>
+                <span className="eyebrow block mb-1">
+                  Amount this period
+                  {line.last_paid_amount != null && (
+                    <span className="normal-case tracking-normal">
+                      {' · last '}<span className="num">{fmt(line.last_paid_amount)}</span>
+                    </span>
+                  )}
+                </span>
                 <input
                   className="field py-1.5"
                   inputMode="decimal"

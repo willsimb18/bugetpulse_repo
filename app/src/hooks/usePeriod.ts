@@ -41,7 +41,7 @@ export function usePeriodDetail(periodId: number | null) {
     if (!periodId) return
     const [s, l, f] = await Promise.all([
       supabase.from('v_period_summary').select('*').eq('budget_period_id', periodId).single(),
-      supabase.from('budget_line').select('*').eq('budget_period_id', periodId)
+      supabase.from('v_budget_line_detail').select('*').eq('budget_period_id', periodId)
         .order('due_date', { ascending: true }).order('name', { ascending: true }),
       supabase.from('v_period_funding').select('*').eq('budget_period_id', periodId)
         .order('received_on', { ascending: true }),
