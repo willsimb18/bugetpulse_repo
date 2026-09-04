@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { Empty, Err } from '../components/Chrome'
 import { fmt, fmtDate, fmtShort } from '../lib/format'
@@ -51,6 +51,18 @@ export function Income({ isOwner }: { isOwner: boolean }) {
 
   useEffect(() => { void load() }, [load])
 
+  // One row per person: the latest rate on file. wage_rate keeps every
+  // raise, and past paychecks still read the rate they were paid at, but
+  // a section titled "Current Pay Rate" should show one line each.
+  const currentRates = useMemo(() => {
+    const byEarner = new Map<string, WageRow>()
+    for (const w of wages) {
+      const seen = byEarner.get(w.earner)
+      if (!seen || w.effective_from > seen.effective_from) byEarner.set(w.earner, w)
+    }
+    return [...byEarner.values()].sort((a, b) => a.earner.localeCompare(b.earner))
+  }, [wages])
+
   return (
     <>
       <div className="flex items-baseline justify-between pt-5 pb-3">
@@ -99,11 +111,11 @@ export function Income({ isOwner }: { isOwner: boolean }) {
             {showRates ? 'Hide' : 'Show'} rates
           </button>
         </div>
-        {wages.length === 0 ? (
+        {currentRates.length === 0 ? (
           <Empty>No rate on file. Record a raise to set a starting rate.</Empty>
         ) : (
           <ul className="border border-rule">
-            {wages.map((w, i) => (
+            {currentRates.map((w, i) => (
               <li key={i} className="bar-row">
                 <button className="w-full flex items-center gap-3 px-3 py-2.5 text-left"
                   onClick={() => setOpenRate(openRate === i ? null : i)}
