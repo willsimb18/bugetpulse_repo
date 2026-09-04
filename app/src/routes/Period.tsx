@@ -253,7 +253,7 @@ export function Period({ isOwner }: { isOwner: boolean }) {
         <Empty>Nothing scheduled in this period yet.</Empty>
       ) : (
         <div className="grid gap-x-6 gap-y-6 items-start
-                        xl:grid-cols-[minmax(0,1fr)_minmax(0,26rem)]">
+                        xl:grid-cols-[minmax(0,1fr)_minmax(0,30rem)]">
           <div className="min-w-0">
             <div className="flex items-center gap-1.5 pt-4 pb-1">
               <span className="eyebrow">List by</span>

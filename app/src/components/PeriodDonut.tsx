@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { fmt, fmtShort } from '../lib/format'
-import { BAD, GOOD, SERIES } from '../lib/chart'
+import { BAD, GOOD } from '../lib/chart'
 import type { BudgetLine, PeriodSummary } from '../lib/types'
 
 /*
@@ -11,17 +11,21 @@ import type { BudgetLine, PeriodSummary } from '../lib/types'
  * glance says both "what am I spending on" and "is any of it left", which
  * two separate charts would have said less well.
  *
- * Only four get a colour, whichever grouping is in force. SERIES holds
- * four validated hues and a fifth would have to be invented, so
- * everything past the top four folds into Other — which is also roughly
- * where a ring stops being readable. The legend still names the fold and
- * says how many are inside it.
+ * COLOUR: the slices are ranked by amount, which is magnitude rather than
+ * identity, so this uses a single-hue ramp dark-to-light rather than the
+ * categorical SERIES. That is also what makes ten slices legitimate —
+ * SERIES holds four validated hues and inventing a fifth is exactly the
+ * thing that breaks colourblind separation, but a ramp has no such limit
+ * because neighbouring steps are meant to look similar. Identity comes
+ * from the legend, which names every slice.
  *
  * Over-allocated periods fill the ring completely and report the
  * shortfall in words rather than drawing an arc longer than the circle.
  */
-const SLICES = 4
-const R = 68
+const SLICES = 10
+const R = 104
+const STROKE = 34
+const SIZE = (R + STROKE / 2) * 2 + 8
 const C = 2 * Math.PI * R
 
 interface Part { name: string; amount: number; color: string }
@@ -53,7 +57,7 @@ export function PeriodDonut({ lines, summary, groupBy }: {
       .sort((a, b) => b[1] - a[1])
 
     const top = ranked.slice(0, SLICES).map(([name, amount], i) => ({
-      name, amount, color: SERIES[i],
+      name, amount, color: `rgb(var(--ramp-${i + 1}))`,
     }))
     const rest = ranked.slice(SLICES).reduce((t, [, v]) => t + v, 0)
     return rest > 0
@@ -89,19 +93,19 @@ export function PeriodDonut({ lines, summary, groupBy }: {
         </p>
       </header>
 
-      <div className="p-3 flex flex-wrap items-center justify-center gap-x-6 gap-y-4">
-        <div className="relative shrink-0">
-          <svg width="172" height="172" viewBox="0 0 172 172" role="img"
+      <div className="px-3 pt-4 flex justify-center">
+        <div className="relative" style={{ width: SIZE, height: SIZE }}>
+          <svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`} role="img"
             aria-label={`${fmt(allocated)} allocated of ${fmt(income)} income`}>
-            <g transform="translate(86,86) rotate(-90)">
-              <circle r={R} fill="none" strokeWidth="20"
+            <g transform={`translate(${SIZE / 2},${SIZE / 2}) rotate(-90)`}>
+              <circle r={R} fill="none" strokeWidth={STROKE}
                 stroke="rgb(var(--rule) / 0.45)" />
               {arcs.map((a) => (
-                <circle key={a.name} r={R} fill="none" strokeWidth="20"
+                <circle key={a.name} r={R} fill="none" strokeWidth={STROKE}
                   stroke={a.color}
-                  strokeDasharray={`${Math.max(0, a.len - 2)} ${C}`}
+                  strokeDasharray={`${Math.max(0, a.len - 1.5)} ${C}`}
                   strokeDashoffset={a.offset}
-                  opacity={hover && hover !== a.name ? 0.35 : 1}
+                  opacity={hover && hover !== a.name ? 0.3 : 1}
                   onMouseEnter={() => setHover(a.name)}
                   onMouseLeave={() => setHover(null)}
                 >
@@ -111,49 +115,50 @@ export function PeriodDonut({ lines, summary, groupBy }: {
             </g>
           </svg>
 
-          {/* The number people actually came for, in the hole. */}
+          {/* Sized to sit inside the hole, which is 2(r - stroke/2) wide,
+              rather than across the ring as it did before. */}
           <div className="absolute inset-0 grid place-items-center pointer-events-none">
-            <div className="text-center">
-              <p className="num text-[21px] leading-none">{fmtShort(income)}</p>
-              <p className="eyebrow mt-1">came in</p>
+            <div className="text-center px-2">
+              <p className="num text-[26px] leading-none">{fmtShort(income)}</p>
+              <p className="eyebrow mt-1.5">came in</p>
+              <p className="num text-xs text-ink3 mt-2">{fmtShort(allocated)} due</p>
             </div>
           </div>
         </div>
-
-        <dl className="flex-1 min-w-[14rem] text-[13px]">
-          {parts.map((p) => (
-            <div key={p.name}
-              className={`flex items-baseline justify-between gap-3 py-0.5 ${
-                hover === p.name ? 'bg-bar' : ''}`}
-              onMouseEnter={() => setHover(p.name)}
-              onMouseLeave={() => setHover(null)}
-            >
-              <dt className="min-w-0 truncate">
-                <span className="inline-block w-2.5 h-2.5 align-[-1px] mr-2"
-                  style={{ backgroundColor: p.color }} />
-                {p.name}
-              </dt>
-              <dd className="num shrink-0">{fmt(p.amount)}</dd>
-            </div>
-          ))}
-
-          <div className="flex items-baseline justify-between gap-3 py-1 mt-1
-                          border-t border-rule">
-            <dt className="text-ink3">
-              {leftOver >= 0 ? 'Not yet allocated' : 'Short by'}
-            </dt>
-            <dd className="num" style={{ color: leftOver >= 0 ? GOOD : BAD }}>
-              {fmt(Math.abs(leftOver))}
-            </dd>
-          </div>
-
-          <p className="eyebrow mt-2 normal-case tracking-normal">
-            {fmtShort(wages)} pay
-            {movedIn > 0 && ` · ${fmtShort(movedIn)} moved in`}
-            {` · ${fmtShort(allocated)} due`}
-          </p>
-        </dl>
       </div>
+
+      <dl className="px-3 pb-3 pt-4 text-[13px]">
+        {parts.map((p) => (
+          <div key={p.name}
+            className={`flex items-baseline justify-between gap-3 py-0.5 px-1 -mx-1 ${
+              hover === p.name ? 'bg-bar' : ''}`}
+            onMouseEnter={() => setHover(p.name)}
+            onMouseLeave={() => setHover(null)}
+          >
+            <dt className="min-w-0 truncate">
+              <span className="inline-block w-2.5 h-2.5 align-[-1px] mr-2"
+                style={{ backgroundColor: p.color }} />
+              {p.name}
+            </dt>
+            <dd className="num shrink-0">{fmt(p.amount)}</dd>
+          </div>
+        ))}
+
+        <div className="flex items-baseline justify-between gap-3 py-1 mt-1
+                        border-t border-rule">
+          <dt className="text-ink3">
+            {leftOver >= 0 ? 'Not yet allocated' : 'Short by'}
+          </dt>
+          <dd className="num" style={{ color: leftOver >= 0 ? GOOD : BAD }}>
+            {fmt(Math.abs(leftOver))}
+          </dd>
+        </div>
+
+        <p className="eyebrow mt-2 normal-case tracking-normal">
+          {fmtShort(wages)} pay
+          {movedIn > 0 && ` · ${fmtShort(movedIn)} moved in`}
+        </p>
+      </dl>
     </section>
   )
 }

@@ -40,6 +40,20 @@
     --series-3: 126 63 143;
     --series-4: 46 139 87;
 
+    /* Ranked-slice ramp. The donut's segments are ordered by amount, which
+       is magnitude, not identity — so one hue dark-to-light, never the
+       categorical hues. Darkest is biggest. */
+    --ramp-1:  14 59 55;
+    --ramp-2:  18 74 69;
+    --ramp-3:  22 89 84;
+    --ramp-4:  27 104 98;
+    --ramp-5:  33 119 112;
+    --ramp-6:  40 134 126;
+    --ramp-7:  49 148 139;
+    --ramp-8:  61 162 152;
+    --ramp-9:  76 175 165;
+    --ramp-10: 95 187 177;
+
     color-scheme: light;
   }
 
@@ -71,6 +85,18 @@
     --series-3: 164 102 204;
     --series-4: 79 168 107;
 
+    /* Same ramp, re-stepped for a dark ground: brightest is biggest. */
+    --ramp-1:  143 224 210;
+    --ramp-2:  127 211 197;
+    --ramp-3:  111 198 184;
+    --ramp-4:  97 185 171;
+    --ramp-5:  83 172 158;
+    --ramp-6:  71 159 146;
+    --ramp-7:  59 146 133;
+    --ramp-8:  48 133 121;
+    --ramp-9:  38 120 109;
+    --ramp-10: 29 107 97;
+
     color-scheme: dark;
   }
 
@@ -100,6 +126,17 @@
       --series-2: 212 118 46;
       --series-3: 164 102 204;
       --series-4: 79 168 107;
+
+      --ramp-1:  143 224 210;
+      --ramp-2:  127 211 197;
+      --ramp-3:  111 198 184;
+      --ramp-4:  97 185 171;
+      --ramp-5:  83 172 158;
+      --ramp-6:  71 159 146;
+      --ramp-7:  59 146 133;
+      --ramp-8:  48 133 121;
+      --ramp-9:  38 120 109;
+      --ramp-10: 29 107 97;
 
       color-scheme: dark;
     }
