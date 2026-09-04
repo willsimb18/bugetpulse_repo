@@ -26,6 +26,7 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
 
 const yearOf = (iso: string) => iso.slice(0, 4)
 const THIS_YEAR = String(new Date().getFullYear())
+const THIS_MONTH = String(new Date().getMonth() + 1)
 const monthOf = (iso: string) => Number(iso.slice(5, 7))
 
 /* One row of the slim all-years pull the year-on-year card needs. */
@@ -263,7 +264,8 @@ export function Dashboard() {
   const [loading, setLoading] = useState(true)
 
   const [year, setYear] = useState<string>(ALL)
-  const [month, setMonth] = useState<string>(ALL)
+  // Opens on the month you are in. Clear widens it back to the year.
+  const [month, setMonth] = useState<string>(THIS_MONTH)
   const [kind, setKind] = useState<string>(ALL)
   const [category, setCategory] = useState<string>(ALL)
   const [status, setStatus] = useState<string>(ALL)
