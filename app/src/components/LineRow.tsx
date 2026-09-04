@@ -79,27 +79,32 @@ export function LineRow({
         </span>
 
         {/*
-          Locked outside the current period. Unticking a settled bill in a
-          fortnight already gone erases what was actually paid, and the
-          period's totals move with it — so the tick becomes a read-only
-          mark once the period is behind us.
+          Asymmetric outside the current period, because the two
+          directions are not the same act. Ticking records that a bill was
+          settled late, which genuinely happens after a fortnight rolls.
+          Unticking erases what was actually paid, and the period's totals
+          move with it. So a past period can still be settled, but a
+          settled line in one cannot be undone.
         */}
         <button
-          disabled={busy || !editable}
+          disabled={busy || (!editable && paid)}
           onClick={() =>
             paid
               ? call('mark_unpaid', { p_line_id: line.id })
               : call('mark_paid', { p_line_id: line.id, p_amount: null, p_paid_on: null })
           }
           aria-label={
-            !editable
-              ? `${line.name} — only the current pay period can be changed`
+            !editable && paid
+              ? `${line.name} — paid, and a closed period cannot be unmarked`
               : paid ? `Mark ${line.name} unpaid` : `Mark ${line.name} paid`
           }
-          title={editable ? undefined : 'Only the current pay period can be changed'}
+          title={!editable && paid
+            ? 'Paid in a closed period — this cannot be unmarked'
+            : !editable ? 'Settle this late — it will be recorded against this period'
+            : undefined}
           className={`w-7 h-7 shrink-0 border grid place-items-center text-xs ${
             paid ? 'bg-moss border-moss text-paper' : 'bg-surface border-rule'
-          } ${!editable ? 'opacity-60 cursor-default' : ''}`}
+          } ${!editable && paid ? 'opacity-60 cursor-default' : ''}`}
         >
           {paid ? '✓' : ''}
         </button>
@@ -165,10 +170,9 @@ export function LineRow({
               )}
             </>
           ) : (
-            !editable ? (
+            paid && !editable ? (
               <p className="text-xs text-ink3">
-                This pay period is closed. Payments can only be recorded in the
-                period you are in.
+                Paid in a closed period. This can no longer be changed.
               </p>
             ) : (
             <>
