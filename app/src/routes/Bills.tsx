@@ -72,7 +72,7 @@ export function Bills({ isOwner }: { isOwner: boolean }) {
           <label className="flex items-center gap-1.5">
             <span className="eyebrow">Type</span>
             <select
-              className="border border-rule bg-white px-2 py-1 text-xs"
+              className="border border-rule bg-surface px-2 py-1 text-xs"
               value={kindFilter}
               onChange={(e) => setKindFilter(e.target.value as AccountKind | 'all')}
             >

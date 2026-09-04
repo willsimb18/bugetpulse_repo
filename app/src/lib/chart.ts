@@ -7,22 +7,31 @@
  * vision and under 6 under deuteranopia. So anything that needs to tell
  * series apart draws from SERIES instead.
  *
- * SERIES was validated on the #FBFCFA surface and passes every check --
- * lightness band, chroma floor, CVD separation (worst adjacent ΔE 15.9
- * deutan), normal-vision floor (21.5) and contrast. THE ORDER MATTERS:
- * green sits last precisely because it collides with orange under
- * deuteranopia, and separating them is what clears the check. Assign these
- * in order and never cycle -- a fifth series folds into "Other" instead.
+ * Both sets pass every check against their own surface -- lightness band,
+ * chroma floor, CVD separation, normal-vision floor and contrast. Light
+ * was validated on #FBFCFA (worst adjacent ΔE 15.9 deutan), dark on
+ * #0F1512 with its own steps rather than lightened versions of the light
+ * ones, which read as mud on a dark ground (worst adjacent ΔE 17.5).
+ *
+ * THE ORDER MATTERS in both: green sits last precisely because it
+ * collides with orange under deuteranopia, and separating them is what
+ * clears the check. Assign these in order and never cycle -- a fifth
+ * series folds into "Other" instead.
+ *
+ * The actual values live in index.css so a theme swap repaints every
+ * chart with no React involved.
  */
-export const SERIES = ['#2B6CA3', '#C2410C', '#7E3F8F', '#2E8B57'] as const
+export const SERIES = [
+  'var(--series-1)', 'var(--series-2)', 'var(--series-3)', 'var(--series-4)',
+] as const
 
 /*
  * Status is a separate job from identity and keeps the app's own colours,
  * so a surplus reads the same here as a paid row does elsewhere. Both
  * always ship with words beside them, never colour alone.
  */
-export const GOOD = '#2F6B4F' // moss
-export const BAD = '#B4451F'  // rust
+export const GOOD = 'var(--good)'
+export const BAD = 'var(--bad)'
 
 /** Largest absolute value in a set, for a shared axis. 0 never divides. */
 export const maxAbs = (xs: number[]) => Math.max(1, ...xs.map((x) => Math.abs(x)))

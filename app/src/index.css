@@ -3,13 +3,115 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Colours live here as space-separated RGB channels, not hex, because
+ * Tailwind composites them with an alpha channel — bg-rust/5, bg-rule/30
+ * and border-amber/40 all exist in this codebase and would break against
+ * a plain hex variable.
+ *
+ * Light is the ledger-paper original. Dark is its own set of choices, not
+ * an inversion: the accents move to sage green and a muted teal, and the
+ * chart series were re-picked and re-validated against the dark surface
+ * rather than reused from light, where they are too dark to read.
+ */
 @layer base {
+  :root {
+    --paper:   251 252 250;
+    --surface: 255 255 255;   /* inputs, buttons — sits above paper */
+    --bar:     231 240 231;   /* the greenbar band */
+    --rule:    203 216 203;
+    --perf:    226 234 226;   /* the perforation dots down the left edge */
+
+    --ink:     22 36 31;
+    --ink2:    61 80 74;
+    --ink3:    110 130 123;
+
+    --moss:    47 107 79;
+    --teal:    44 122 114;
+    --rust:    180 69 31;
+    --amber:   169 114 14;
+    --slate:   49 85 110;
+
+    --good:    47 107 79;
+    --bad:     180 69 31;
+
+    --series-1: 43 108 163;
+    --series-2: 194 65 12;
+    --series-3: 126 63 143;
+    --series-4: 46 139 87;
+
+    color-scheme: light;
+  }
+
+  /* Explicit choice wins in both directions. */
+  :root[data-theme='dark'] {
+    --paper:   15 21 18;
+    --surface: 26 36 30;
+    --bar:     23 32 27;
+    --rule:    43 58 50;
+    --perf:    28 38 32;
+
+    --ink:     232 240 233;
+    --ink2:    182 198 187;
+    --ink3:    135 154 141;
+
+    --moss:    127 196 154;   /* sage */
+    --teal:    95 176 168;    /* muted teal */
+    --rust:    224 122 85;
+    --amber:   217 163 63;
+    --slate:   111 168 201;
+
+    --good:    127 196 154;
+    --bad:     224 122 85;
+
+    /* Re-picked for the dark surface: all five checks pass, worst
+       adjacent pair dE 17.5 under deuteranopia. */
+    --series-1: 62 143 199;
+    --series-2: 212 118 46;
+    --series-3: 164 102 204;
+    --series-4: 79 168 107;
+
+    color-scheme: dark;
+  }
+
+  /* No explicit choice: follow the system. */
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme='light']) {
+      --paper:   15 21 18;
+      --surface: 26 36 30;
+      --bar:     23 32 27;
+      --rule:    43 58 50;
+      --perf:    28 38 32;
+
+      --ink:     232 240 233;
+      --ink2:    182 198 187;
+      --ink3:    135 154 141;
+
+      --moss:    127 196 154;
+      --teal:    95 176 168;
+      --rust:    224 122 85;
+      --amber:   217 163 63;
+      --slate:   111 168 201;
+
+      --good:    127 196 154;
+      --bad:     224 122 85;
+
+      --series-1: 62 143 199;
+      --series-2: 212 118 46;
+      --series-3: 164 102 204;
+      --series-4: 79 168 107;
+
+      color-scheme: dark;
+    }
+  }
+
   html { -webkit-text-size-adjust: 100%; }
   body {
     @apply bg-paper text-ink font-sans antialiased;
     /* Faint continuous-feed perforation down the left edge — the one
        decorative flourish, and it comes straight from the subject. */
-    background-image: radial-gradient(circle at 10px 50%, #E2EAE2 1.5px, transparent 1.6px);
+    background-image: radial-gradient(
+      circle at 10px 50%, rgb(var(--perf)) 1.5px, transparent 1.6px);
     background-size: 20px 22px;
     background-repeat: repeat-y;
   }
@@ -22,12 +124,12 @@
   .num { @apply font-mono tabular-nums; }
   .rule-t { @apply border-t border-rule; }
   .btn {
-    @apply px-3 py-2 text-sm font-medium border border-rule bg-white
+    @apply px-3 py-2 text-sm font-medium border border-rule bg-surface
            active:translate-y-px disabled:opacity-40 disabled:pointer-events-none;
   }
   .btn-go { @apply btn bg-ink text-paper border-ink; }
   .field {
-    @apply w-full px-3 py-2 border border-rule bg-white font-mono text-base
+    @apply w-full px-3 py-2 border border-rule bg-surface font-mono text-base
            focus:border-slate;
   }
   .eyebrow { @apply text-[11px] uppercase tracking-[0.14em] text-ink3 font-medium; }

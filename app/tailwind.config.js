@@ -1,19 +1,27 @@
 /** @type {import('tailwindcss').Config} */
+
+// Every colour is a CSS variable holding RGB channels, so a theme swap is
+// a variable change rather than a rebuild. The <alpha-value> placeholder
+// is what keeps bg-rust/5 and border-amber/40 working.
+const themed = (name) => `rgb(var(--${name}) / <alpha-value>)`
+
 export default {
   content: ['./index.html', './src/**/*.{ts,tsx}'],
   theme: {
     extend: {
       colors: {
-        ink:    '#16241F',
-        ink2:   '#3D504A',
-        ink3:   '#6E827B',
-        paper:  '#FBFCFA',
-        bar:    '#E7F0E7',
-        rule:   '#CBD8CB',
-        rust:   '#B4451F',
-        moss:   '#2F6B4F',
-        amber:  '#A9720E',
-        slate:  '#31556E',
+        ink:     themed('ink'),
+        ink2:    themed('ink2'),
+        ink3:    themed('ink3'),
+        paper:   themed('paper'),
+        surface: themed('surface'),
+        bar:     themed('bar'),
+        rule:    themed('rule'),
+        rust:    themed('rust'),
+        moss:    themed('moss'),
+        teal:    themed('teal'),
+        amber:   themed('amber'),
+        slate:   themed('slate'),
       },
       fontFamily: {
         sans: ['"IBM Plex Sans"', 'system-ui', 'sans-serif'],

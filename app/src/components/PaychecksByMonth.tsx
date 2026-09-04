@@ -62,7 +62,7 @@ export function PaychecksByMonth({ rows }: { rows: IncomeRow[] }) {
         </div>
         <label className="flex items-center gap-1.5 shrink-0">
           <span className="eyebrow">Year</span>
-          <select className="border border-rule bg-white px-2 py-1 text-xs"
+          <select className="border border-rule bg-surface px-2 py-1 text-xs"
             value={active}
             onChange={(e) => { setYear(e.target.value); setOpen(null) }}>
             <option value={ALL}>All</option>

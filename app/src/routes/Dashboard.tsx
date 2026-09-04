@@ -105,7 +105,7 @@ function Select({ label, value, onChange, options }: {
   return (
     <label className="flex items-center gap-1.5 min-w-0">
       <span className="eyebrow shrink-0">{label}</span>
-      <select className="border border-rule bg-white px-2 py-1 text-xs max-w-[11rem]"
+      <select className="border border-rule bg-surface px-2 py-1 text-xs max-w-[11rem]"
         value={value} onChange={(e) => onChange(e.target.value)}>
         {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
       </select>

@@ -66,7 +66,7 @@ export function Debts({ isOwner }: { isOwner: boolean }) {
         <label className="flex items-center gap-1.5 shrink-0 pb-1">
           <span className="eyebrow">Debt type</span>
           <select
-            className="border border-rule bg-white px-2 py-1 text-xs"
+            className="border border-rule bg-surface px-2 py-1 text-xs"
             value={subType}
             onChange={(e) => setSubType(e.target.value)}
           >

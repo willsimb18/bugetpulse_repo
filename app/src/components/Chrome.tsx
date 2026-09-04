@@ -1,5 +1,6 @@
 import { NavLink, useLocation } from 'react-router-dom'
 import type { ReactNode } from 'react'
+import { useTheme } from '../hooks/useTheme'
 
 // The list pages read best as one narrow column. The debt page is the only
 // one carrying a dashboard beside its list, so it gets the full width.
@@ -23,13 +24,31 @@ export function Chrome({
   idleWarning?: boolean
 }) {
   const wide = WIDE_ROUTES.includes(useLocation().pathname)
+  const { theme, setTheme } = useTheme()
   return (
     <div className="min-h-dvh flex flex-col">
       <header className="pl-6 pr-4 pt-5 pb-3 flex items-baseline justify-between">
         <h1 className="font-mono text-[13px] tracking-[0.18em] uppercase">Budget Pulse</h1>
-        <button onClick={onSignOut} className="eyebrow hover:text-ink">
-          {who} · sign out
-        </button>
+        <div className="flex items-center gap-3">
+          <label className="flex items-center gap-1.5">
+            <span className="eyebrow sr-only">Theme</span>
+            <select
+              className="border border-rule bg-surface px-1.5 py-0.5 text-[11px]
+                         uppercase tracking-[0.14em] text-ink3"
+              value={theme}
+              onChange={(e) => setTheme(e.target.value as typeof theme)}
+              aria-label="Colour theme"
+            >
+              <option value="system">Auto</option>
+              <option value="light">Light</option>
+              <option value="dark">Dark</option>
+            </select>
+          </label>
+
+          <button onClick={onSignOut} className="eyebrow hover:text-ink">
+            {who} · sign out
+          </button>
+        </div>
       </header>
 
       {idleWarning && (

@@ -72,7 +72,7 @@ export function LineRow({
           }
           aria-label={paid ? `Mark ${line.name} unpaid` : `Mark ${line.name} paid`}
           className={`w-7 h-7 shrink-0 border grid place-items-center text-xs ${
-            paid ? 'bg-moss border-moss text-white' : 'bg-white border-rule'
+            paid ? 'bg-moss border-moss text-paper' : 'bg-surface border-rule'
           }`}
         >
           {paid ? '✓' : ''}

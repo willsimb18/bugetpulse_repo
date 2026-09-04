@@ -69,7 +69,7 @@ function AdHocLine({
             <div className="flex flex-wrap gap-1 mt-1.5">
               {suggestions.map((k) => (
                 <button key={k.name} type="button"
-                  className="border border-rule bg-white px-1.5 py-0.5 text-[11px]
+                  className="border border-rule bg-surface px-1.5 py-0.5 text-[11px]
                              hover:bg-bar max-w-full truncate"
                   title={k.last_used ? `Last used ${fmtDate(k.last_used)}` : 'From the Bills tab'}
                   onClick={() => setName(k.name)}>
