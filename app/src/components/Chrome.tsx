@@ -14,8 +14,14 @@ const tabs = [
 ]
 
 export function Chrome({
-  children, who, onSignOut,
-}: { children: ReactNode; who: string; onSignOut: () => void }) {
+  children, who, onSignOut, idleWarning,
+}: {
+  children: ReactNode
+  who: string
+  onSignOut: () => void
+  /** True in the last couple of minutes before an idle sign-out. */
+  idleWarning?: boolean
+}) {
   const wide = WIDE_ROUTES.includes(useLocation().pathname)
   return (
     <div className="min-h-dvh flex flex-col">
@@ -25,6 +31,13 @@ export function Chrome({
           {who} · sign out
         </button>
       </header>
+
+      {idleWarning && (
+        <p role="status"
+          className="pl-6 pr-4 py-1.5 text-xs text-amber border-t border-amber/40 bg-amber/5">
+          Signing out shortly — move the mouse or press a key to stay.
+        </p>
+      )}
 
       <nav className="pl-6 pr-4 flex gap-5 rule-t border-b border-rule">
         {tabs.map((t) => (
