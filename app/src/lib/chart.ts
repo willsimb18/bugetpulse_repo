@@ -7,19 +7,18 @@
  * vision and under 6 under deuteranopia. So anything that needs to tell
  * series apart draws from SERIES instead.
  *
- * Both sets pass every check against their own surface -- lightness band,
- * chroma floor, CVD separation, normal-vision floor and contrast. Light
- * was validated on #FBFCFA (worst adjacent ΔE 15.9 deutan), dark on
- * #0F1512 with its own steps rather than lightened versions of the light
- * ones, which read as mud on a dark ground (worst adjacent ΔE 17.5).
+ * Validated on the #FBFCFA surface: lightness band, chroma floor, CVD
+ * separation (worst adjacent ΔE 15.9 deutan), normal-vision floor (21.5)
+ * and contrast all pass.
  *
- * THE ORDER MATTERS in both: green sits last precisely because it
+ * THE ORDER MATTERS: green sits last precisely because it
  * collides with orange under deuteranopia, and separating them is what
  * clears the check. Assign these in order and never cycle -- a fifth
  * series folds into "Other" instead.
  *
- * The actual values live in index.css so a theme swap repaints every
- * chart with no React involved.
+ * The values live in index.css as RGB channels, which is why they are
+ * wrapped in rgb() here -- used bare, var(--series-1) resolves to an
+ * invalid colour and paints nothing.
  */
 // Wrapped in rgb() on purpose: the variables hold space-separated
 // channels ("43 108 163") so Tailwind can composite an alpha onto them.

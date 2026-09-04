@@ -9,10 +9,11 @@
  * and border-amber/40 all exist in this codebase and would break against
  * a plain hex variable.
  *
- * Light is the ledger-paper original. Dark is its own set of choices, not
- * an inversion: the accents move to sage green and a muted teal, and the
- * chart series were re-picked and re-validated against the dark surface
- * rather than reused from light, where they are too dark to read.
+ * Light only. The variables stay because they are doing a second job now
+ * -- --surface is a real token, and --ramp-1..10 is a sequential scale the
+ * donut needs -- and because colour-scheme: light keeps native form
+ * controls light on a machine set to dark, which a hardcoded palette
+ * would not.
  */
 @layer base {
   :root {
@@ -55,91 +56,6 @@
     --ramp-10: 95 187 177;
 
     color-scheme: light;
-  }
-
-  /* Explicit choice wins in both directions. */
-  :root[data-theme='dark'] {
-    --paper:   15 21 18;
-    --surface: 26 36 30;
-    --bar:     23 32 27;
-    --rule:    43 58 50;
-    --perf:    28 38 32;
-
-    --ink:     232 240 233;
-    --ink2:    182 198 187;
-    --ink3:    135 154 141;
-
-    --moss:    127 196 154;   /* sage */
-    --teal:    95 176 168;    /* muted teal */
-    --rust:    224 122 85;
-    --amber:   217 163 63;
-    --slate:   111 168 201;
-
-    --good:    127 196 154;
-    --bad:     224 122 85;
-
-    /* Re-picked for the dark surface: all five checks pass, worst
-       adjacent pair dE 17.5 under deuteranopia. */
-    --series-1: 62 143 199;
-    --series-2: 212 118 46;
-    --series-3: 164 102 204;
-    --series-4: 79 168 107;
-
-    /* Same ramp, re-stepped for a dark ground: brightest is biggest. */
-    --ramp-1:  143 224 210;
-    --ramp-2:  127 211 197;
-    --ramp-3:  111 198 184;
-    --ramp-4:  97 185 171;
-    --ramp-5:  83 172 158;
-    --ramp-6:  71 159 146;
-    --ramp-7:  59 146 133;
-    --ramp-8:  48 133 121;
-    --ramp-9:  38 120 109;
-    --ramp-10: 29 107 97;
-
-    color-scheme: dark;
-  }
-
-  /* No explicit choice: follow the system. */
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme='light']) {
-      --paper:   15 21 18;
-      --surface: 26 36 30;
-      --bar:     23 32 27;
-      --rule:    43 58 50;
-      --perf:    28 38 32;
-
-      --ink:     232 240 233;
-      --ink2:    182 198 187;
-      --ink3:    135 154 141;
-
-      --moss:    127 196 154;
-      --teal:    95 176 168;
-      --rust:    224 122 85;
-      --amber:   217 163 63;
-      --slate:   111 168 201;
-
-      --good:    127 196 154;
-      --bad:     224 122 85;
-
-      --series-1: 62 143 199;
-      --series-2: 212 118 46;
-      --series-3: 164 102 204;
-      --series-4: 79 168 107;
-
-      --ramp-1:  143 224 210;
-      --ramp-2:  127 211 197;
-      --ramp-3:  111 198 184;
-      --ramp-4:  97 185 171;
-      --ramp-5:  83 172 158;
-      --ramp-6:  71 159 146;
-      --ramp-7:  59 146 133;
-      --ramp-8:  48 133 121;
-      --ramp-9:  38 120 109;
-      --ramp-10: 29 107 97;
-
-      color-scheme: dark;
-    }
   }
 
   html { -webkit-text-size-adjust: 100%; }
