@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { usePeriodDetail, usePeriods } from '../hooks/usePeriod'
 import { LineRow } from '../components/LineRow'
 import { Empty, Err } from '../components/Chrome'
@@ -9,6 +9,8 @@ import type { AccountKind, BudgetLine } from '../lib/types'
 
 const ORDER: AccountKind[] = ['bill', 'expense', 'debt', 'saving']
 
+interface ExpenseName { name: string; last_used: string | null; times: number }
+
 function AdHocLine({
   periodId, onDone, onError,
 }: { periodId: number; onDone: () => void; onError: (m: string | null) => void }) {
@@ -16,6 +18,25 @@ function AdHocLine({
   const [amount, setAmount] = useState('')
   const [kind, setKind] = useState('expense')
   const [busy, setBusy] = useState(false)
+  const [known, setKnown] = useState<ExpenseName[]>([])
+
+  // Everything ever spent on, from the catalogue and from past one-offs.
+  useEffect(() => {
+    void supabase.from('v_expense_names')
+      .select('name,last_used,times')
+      .order('times', { ascending: false })
+      .then(({ data }) => setKnown((data ?? []) as ExpenseName[]))
+  }, [])
+
+  // Most used first, then most recent, so the obvious answer is at the top.
+  const suggestions = useMemo(() => {
+    const q = name.trim().toLowerCase()
+    return known
+      .filter((k) => !q || k.name.toLowerCase().includes(q))
+      .sort((a, b) => (b.times - a.times)
+        || (b.last_used ?? '').localeCompare(a.last_used ?? ''))
+      .slice(0, 8)
+  }, [known, name])
 
   async function save() {
     setBusy(true); onError(null)
@@ -43,7 +64,20 @@ function AdHocLine({
         <label className="block">
           <span className="eyebrow block mb-1">What for</span>
           <input className="field" value={name} onChange={(e) => setName(e.target.value)}
-            placeholder="Car repair" />
+            placeholder="Car repair" autoComplete="off" />
+          {suggestions.length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-1.5">
+              {suggestions.map((k) => (
+                <button key={k.name} type="button"
+                  className="border border-rule bg-white px-1.5 py-0.5 text-[11px]
+                             hover:bg-bar max-w-full truncate"
+                  title={k.last_used ? `Last used ${fmtDate(k.last_used)}` : 'From the Bills tab'}
+                  onClick={() => setName(k.name)}>
+                  {k.name}
+                </button>
+              ))}
+            </div>
+          )}
         </label>
         <label className="block">
           <span className="eyebrow block mb-1">Amount</span>
