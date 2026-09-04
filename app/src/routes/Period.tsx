@@ -123,34 +123,77 @@ export function Period({ isOwner }: { isOwner: boolean }) {
   const [refreshing, setRefreshing] = useState(false)
   const [groupBy, setGroupBy] = useState<'kind' | 'category'>('kind')
 
-  // Exports the period on screen, in the order it is on screen, so the
-  // file matches what was being looked at when the button was pressed.
+  /*
+   * Exports the period on screen, in the order it is on screen, so the
+   * file matches what was being looked at when the button was pressed.
+   *
+   * Both sides of the ledger go in. Budget lines carry row_type
+   * "budget_line"; the money that funded them carries "income" and names
+   * its source in income_type, so summing amount_paid by row_type gives
+   * what came in against what went out. The period's income totals repeat
+   * on every row as well — redundant, but it means one row is enough to
+   * reconstruct the period without a lookup.
+   *
+   * The paycheck is added by hand: v_period_funding is defined as
+   * `where not is_wage(kind)`, so it holds the savings and credit draws
+   * and deliberately not the wages.
+   */
   function exportCsv() {
     if (!current) return
-    const rows = groups.flatMap((g) =>
+
+    const inc = {
+      total: Number(summary?.net_income ?? 0).toFixed(2),
+      pay: Number(summary?.wage_income ?? 0).toFixed(2),
+      savings: Number(summary?.from_savings ?? 0).toFixed(2),
+      credit: Number(summary?.from_credit ?? 0).toFixed(2),
+      bonus: Number(summary?.bonus_income ?? 0).toFixed(2),
+      other: Number(summary?.other_funding ?? 0).toFixed(2),
+    }
+    const period = [current.period_start, current.label ?? '']
+    const totals = [inc.total, inc.pay, inc.savings, inc.credit, inc.bonus, inc.other]
+
+    const lineRows = groups.flatMap((g) =>
       g.items.map((l) => [
-        current.period_start,
-        current.label ?? '',
+        'budget_line', ...period,
         groupBy === 'kind' ? KIND_LABEL[l.kind] ?? l.kind : g.label,
-        l.name,
-        l.type_name ?? '',
-        l.sub_type_name ?? '',
-        l.kind,
-        l.due_date,
-        l.status,
-        urgencyLabel(l.due_date, l.status),
+        l.name, l.type_name ?? '', l.sub_type_name ?? '', l.kind,
+        '',                                   // income_type
+        l.due_date, l.status, urgencyLabel(l.due_date, l.status),
         Number(l.amount_due ?? 0).toFixed(2),
         Number(l.amount_paid ?? 0).toFixed(2),
         l.paid_on ?? '',
         l.last_paid_amount == null ? '' : Number(l.last_paid_amount).toFixed(2),
         l.last_paid_on ?? '',
+        ...totals,
       ]))
 
+    const wage = Number(summary?.wage_income ?? 0)
+    const incomeRows = [
+      ...(wage > 0 ? [[
+        'income', ...period, 'Income', 'Paycheck', '', '', '', 'regular',
+        current.pay_date, 'received', '', '', wage.toFixed(2),
+        current.pay_date, '', '', ...totals,
+      ]] : []),
+      ...funding.map((f) => [
+        'income', ...period, 'Income',
+        f.source_account ?? f.kind.replace(/_/g, ' '),
+        '', '', '', f.kind,
+        f.received_on, 'received', '', '',
+        Number(f.amount ?? 0).toFixed(2),
+        f.received_on, '', '', ...totals,
+      ]),
+    ]
+
     const csv = toCsv([
-      'period_start', 'period_label', 'group', 'name', 'category', 'sub_category',
-      'kind', 'due_date', 'status', 'due_in', 'amount_due', 'amount_paid',
-      'paid_on', 'last_paid_amount', 'last_paid_on',
-    ], rows)
+      'row_type', 'period_start', 'period_label', 'group', 'name',
+      'category', 'sub_category', 'kind', 'income_type',
+      'due_date', 'status', 'due_in',
+      'amount_due', 'amount_paid', 'paid_on',
+      'last_paid_amount', 'last_paid_on',
+      'period_income_total', 'period_income_from_pay',
+      'period_income_from_savings', 'period_income_from_credit',
+      'period_income_bonus', 'period_income_other',
+    ], [...lineRows, ...incomeRows])
 
     downloadCsv(`budgetpulse-${current.period_start}.csv`, csv)
   }
