@@ -18,6 +18,7 @@ export function Bills({ isOwner }: { isOwner: boolean }) {
   const [openId, setOpenId] = useState<number | null>(null)
   const [showInactive, setShowInactive] = useState(false)
   const [kindFilter, setKindFilter] = useState<AccountKind | 'all'>('all')
+  const [query, setQuery] = useState('')
   const [busy, setBusy] = useState(false)
   const [adding, setAdding] = useState<AccountKind | null>(null)
 
@@ -38,8 +39,17 @@ export function Bills({ isOwner }: { isOwner: boolean }) {
     else void load()
   }
 
+  const q = query.trim().toLowerCase()
+  const matches = (r: AccountAdmin) =>
+    !q ||
+    r.name.toLowerCase().includes(q) ||
+    (r.type_name ?? '').toLowerCase().includes(q) ||
+    (r.sub_type_name ?? '').toLowerCase().includes(q)
+
   const visible = rows.filter(
-    (r) => (showInactive || r.is_active) && (kindFilter === 'all' || r.kind === kindFilter),
+    (r) => (showInactive || r.is_active)
+        && (kindFilter === 'all' || r.kind === kindFilter)
+        && matches(r),
   )
 
   // Fixed order, so a section never jumps position when another empties.
@@ -51,7 +61,7 @@ export function Bills({ isOwner }: { isOwner: boolean }) {
   // Counts come off the unfiltered rows, so the dropdown can say what is
   // behind an option you haven't picked yet.
   const countOf = (k: AccountKind) =>
-    rows.filter((r) => (showInactive || r.is_active) && r.kind === k).length
+    rows.filter((r) => (showInactive || r.is_active) && r.kind === k && matches(r)).length
 
   return (
     <>
@@ -83,6 +93,22 @@ export function Bills({ isOwner }: { isOwner: boolean }) {
         </div>
       </div>
 
+      <div className="flex items-center gap-2 pb-3">
+        <input
+          type="search"
+          className="field py-1.5 text-sm font-sans"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search bills and accounts…"
+          aria-label="Search bills and accounts"
+        />
+        {q && (
+          <span className="eyebrow shrink-0 whitespace-nowrap">
+            {visible.length} match{visible.length === 1 ? '' : 'es'}
+          </span>
+        )}
+      </div>
+
       {isOwner && (
         <div className="flex flex-wrap gap-2 pb-3">
           {(['bill', 'expense', 'saving'] as AccountKind[]).map((k) => (
@@ -103,9 +129,11 @@ export function Bills({ isOwner }: { isOwner: boolean }) {
       )}
       {visible.length === 0 && (
         <Empty>
-          {kindFilter === 'all'
-            ? 'No accounts yet.'
-            : `No ${KIND_LABEL[kindFilter].toLowerCase()} to show.`}
+          {q
+            ? `Nothing matching “${query.trim()}”.`
+            : kindFilter === 'all'
+              ? 'No accounts yet.'
+              : `No ${KIND_LABEL[kindFilter].toLowerCase()} to show.`}
         </Empty>
       )}
 
