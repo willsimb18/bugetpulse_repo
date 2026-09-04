@@ -252,34 +252,42 @@ export function Period({ isOwner }: { isOwner: boolean }) {
       ) : lines.length === 0 ? (
         <Empty>Nothing scheduled in this period yet.</Empty>
       ) : (
+        <>
+        {/*
+          The filter and the legend belong to the page, not to the left
+          column. Kept inside it they pushed the first list down while the
+          donut beside it started at the top, so the two cards never lined
+          up. Above the grid, both columns begin on the same line.
+        */}
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 pt-4 pb-2">
+          <div className="flex items-center gap-1.5">
+            <span className="eyebrow">List by</span>
+            {([['kind', 'Accounts'], ['category', 'Category']] as const).map(([v, label]) => (
+              <button key={v}
+                className={`btn py-0.5 text-[11px] ${
+                  groupBy === v ? 'bg-ink text-paper border-ink' : ''}`}
+                onClick={() => setGroupBy(v)}>
+                {label}
+              </button>
+            ))}
+          </div>
+
+          <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-ink3">
+            {URGENCY_LEGEND.map((l) => (
+              <span key={l.key} className="flex items-center gap-1.5">
+                <span aria-hidden
+                  className={`w-1.5 h-1.5 rounded-full shrink-0 ${l.dot}`} />
+                {l.label}
+              </span>
+            ))}
+          </p>
+        </div>
+
         <div className="grid gap-x-6 gap-y-6 items-start
                         xl:grid-cols-[minmax(0,1fr)_minmax(0,30rem)]">
           <div className="min-w-0">
-            <div className="flex items-center gap-1.5 pt-4 pb-1">
-              <span className="eyebrow">List by</span>
-              {([['kind', 'Accounts'], ['category', 'Category']] as const).map(([v, label]) => (
-                <button key={v}
-                  className={`btn py-0.5 text-[11px] ${
-                    groupBy === v ? 'bg-ink text-paper border-ink' : ''}`}
-                  onClick={() => setGroupBy(v)}>
-                  {label}
-                </button>
-              ))}
-            </div>
-
-            <p className="flex flex-wrap items-center gap-x-4 gap-y-1 pt-2 pb-1
-                          text-[11px] text-ink3">
-              {URGENCY_LEGEND.map((l) => (
-                <span key={l.key} className="flex items-center gap-1.5">
-                  <span aria-hidden
-                    className={`w-1.5 h-1.5 rounded-full shrink-0 ${l.dot}`} />
-                  {l.label}
-                </span>
-              ))}
-            </p>
-
             {groups.map((g) => (
-              <section key={g.key} className="mt-4">
+              <section key={g.key} className="mb-5">
                 <div className="flex items-baseline justify-between mb-1">
                   <h2 className="eyebrow">{g.label}</h2>
                   <span className="num text-xs text-ink3">{fmt(g.total)}</span>
@@ -294,10 +302,11 @@ export function Period({ isOwner }: { isOwner: boolean }) {
             ))}
           </div>
 
-          <div className="min-w-0 xl:pt-4">
+          <div className="min-w-0">
             <PeriodDonut lines={lines} summary={summary} groupBy={groupBy} />
           </div>
         </div>
+        </>
       )}
     </>
   )
