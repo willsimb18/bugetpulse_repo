@@ -78,17 +78,28 @@ export function LineRow({
           {fmt(paid || line.status === 'partial' ? line.amount_paid : line.amount_due)}
         </span>
 
+        {/*
+          Locked outside the current period. Unticking a settled bill in a
+          fortnight already gone erases what was actually paid, and the
+          period's totals move with it — so the tick becomes a read-only
+          mark once the period is behind us.
+        */}
         <button
-          disabled={busy}
+          disabled={busy || !editable}
           onClick={() =>
             paid
               ? call('mark_unpaid', { p_line_id: line.id })
               : call('mark_paid', { p_line_id: line.id, p_amount: null, p_paid_on: null })
           }
-          aria-label={paid ? `Mark ${line.name} unpaid` : `Mark ${line.name} paid`}
+          aria-label={
+            !editable
+              ? `${line.name} — only the current pay period can be changed`
+              : paid ? `Mark ${line.name} unpaid` : `Mark ${line.name} paid`
+          }
+          title={editable ? undefined : 'Only the current pay period can be changed'}
           className={`w-7 h-7 shrink-0 border grid place-items-center text-xs ${
             paid ? 'bg-moss border-moss text-paper' : 'bg-surface border-rule'
-          }`}
+          } ${!editable ? 'opacity-60 cursor-default' : ''}`}
         >
           {paid ? '✓' : ''}
         </button>
@@ -154,6 +165,12 @@ export function LineRow({
               )}
             </>
           ) : (
+            !editable ? (
+              <p className="text-xs text-ink3">
+                This pay period is closed. Payments can only be recorded in the
+                period you are in.
+              </p>
+            ) : (
             <>
               <label className="flex-1 min-w-[8rem]">
                 <span className="eyebrow block mb-1">Paid a different amount?</span>
@@ -176,6 +193,7 @@ export function LineRow({
                 Record payment
               </button>
             </>
+            )
           )}
         </div>
       )}
