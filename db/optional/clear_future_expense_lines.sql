@@ -1,12 +1,16 @@
 -- =====================================================================
--- Clear auto-created expense lines out of periods that have not started.
+-- Clear auto-created expense lines out of the current and future periods.
 --
 -- Migration 16 stops materialize_period creating them, but it cannot undo
 -- what earlier runs already made. If upkeep ran before that migration
 -- landed, every future period is carrying an expense line per account.
 --
+-- Covers the period you are in as well as every one after it. The
+-- current period was excluded at first, which was too cautious: it is the
+-- one you are looking at, and it was carrying the whole catalogue.
+--
 -- WHAT THIS WILL NOT TOUCH — history is the point of the exercise:
---   * anything in a period that has already started (period_start <= today)
+--   * any period that has already ended (period_end < today)
 --   * anything paid or part paid, in any period
 --   * anything added by hand (is_manual), in any period
 --   * anything on an is_always_due account, which is an explicit
@@ -14,11 +18,18 @@
 --   * bills, debts and savings — expenses only
 --
 -- So it only removes scheduled, untouched, auto-generated expense lines
--- in periods still ahead of you. Run STEP 1, read it, then run STEP 2.
+-- from today's period onwards. Anything you have already paid in the
+-- current period stays exactly where it is.
+--
+-- Run STEP 1, read it, then run STEP 2.
 -- =====================================================================
 
 -- ---------------------------------------------------------------------
 -- STEP 1 — what would go, and what is being kept.
+--
+-- Check that migration 16 has applied before running STEP 2, or
+-- materialize_period will simply put them back on the next upkeep:
+--   select filename from schema_migrations where filename like '16%';
 -- ---------------------------------------------------------------------
 select
   count(*)                                         as would_delete,
@@ -32,7 +43,7 @@ where l.kind = 'expense'
   and l.status = 'scheduled'
   and not coalesce(l.is_manual, false)
   and not a.is_always_due
-  and p.period_start > current_date;
+  and p.period_end >= current_date;
 
 -- Everything that stays, so the numbers can be checked before and after.
 select
@@ -53,7 +64,7 @@ where p.id = l.budget_period_id
   and l.status = 'scheduled'
   and not coalesce(l.is_manual, false)
   and not a.is_always_due
-  and p.period_start > current_date;
+  and p.period_end >= current_date;
 
 
 -- ---------------------------------------------------------------------
