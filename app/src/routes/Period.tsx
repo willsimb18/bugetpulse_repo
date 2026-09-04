@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { usePeriodDetail, usePeriods } from '../hooks/usePeriod'
 import { LineRow } from '../components/LineRow'
+import { PeriodDonut } from '../components/PeriodDonut'
 import { Empty, Err } from '../components/Chrome'
 import { AddFunds } from '../components/AddFunds'
 import { supabase } from '../lib/supabase'
@@ -119,6 +120,8 @@ export function Period({ isOwner }: { isOwner: boolean }) {
   const [err, setErr] = useState<string | null>(null)
   const [addingLine, setAddingLine] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
+  // Two ways of showing the category, side by side for comparison.
+  const [categoryAs, setCategoryAs] = useState<'subtitle' | 'column'>('subtitle')
   const [upkeep, setUpkeep] = useState<string | null>(null)
 
   // The same thing the nightly job runs: extend the calendar, then
@@ -235,6 +238,24 @@ export function Period({ isOwner }: { isOwner: boolean }) {
         </>
       )}
 
+      {!loading && lines.length > 0 && (
+        <PeriodDonut lines={lines} summary={summary} />
+      )}
+
+      {!loading && lines.length > 0 && (
+        <div className="flex items-center gap-1.5 pt-5">
+          <span className="eyebrow">Category</span>
+          {(['subtitle', 'column'] as const).map((v) => (
+            <button key={v}
+              className={`btn py-0.5 text-[11px] ${
+                categoryAs === v ? 'bg-ink text-paper border-ink' : ''}`}
+              onClick={() => setCategoryAs(v)}>
+              {v === 'subtitle' ? 'As subtitle' : 'As column'}
+            </button>
+          ))}
+        </div>
+      )}
+
       {loading ? (
         <Empty>Loading…</Empty>
       ) : lines.length === 0 ? (
@@ -251,7 +272,7 @@ export function Period({ isOwner }: { isOwner: boolean }) {
             <ul className="border border-rule">
               {grouped.get(kind)!.map((l) => (
                 <LineRow key={l.id} line={l} isOwner={isOwner} editable={editable}
-                  onChange={reload} onError={setErr} />
+                  categoryAs={categoryAs} onChange={reload} onError={setErr} />
               ))}
             </ul>
           </section>

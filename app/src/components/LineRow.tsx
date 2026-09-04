@@ -8,10 +8,12 @@ const dot: Record<string, string> = {
 }
 
 export function LineRow({
-  line, isOwner, editable, onChange, onError,
+  line, isOwner, editable, categoryAs, onChange, onError,
 }: {
   line: BudgetLine
   isOwner: boolean
+  /** Two ways of showing the category, so they can be compared. */
+  categoryAs: 'subtitle' | 'column'
   /** False on a period that is not the one we are currently in. */
   editable: boolean
   onChange: () => void
@@ -45,6 +47,12 @@ export function LineRow({
           <span className={`block truncate text-[15px] ${paid ? 'text-ink3 line-through' : ''}`}>
             {line.name}
           </span>
+          {categoryAs === 'subtitle' && line.type_name && (
+            <span className="block text-xs text-ink2 truncate">
+              {line.type_name}
+              {line.sub_type_name && <span className="text-ink3"> · {line.sub_type_name}</span>}
+            </span>
+          )}
           <span className="eyebrow block">
             {fmtDate(line.due_date)}
             {u === 'overdue' && !paid && <span className="text-rust"> · overdue</span>}
@@ -58,6 +66,15 @@ export function LineRow({
             </span>
           )}
         </button>
+
+        {categoryAs === 'column' && (
+          <span className="hidden sm:block w-32 shrink-0 text-xs text-ink2 truncate">
+            {line.type_name ?? <span className="text-ink3">—</span>}
+            {line.sub_type_name && (
+              <span className="block text-ink3 truncate">{line.sub_type_name}</span>
+            )}
+          </span>
+        )}
 
         <span className={`num text-[15px] shrink-0 ${paid ? 'text-ink3' : ''}`}>
           {fmt(paid || line.status === 'partial' ? line.amount_paid : line.amount_due)}

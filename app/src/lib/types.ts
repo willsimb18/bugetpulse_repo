@@ -79,6 +79,9 @@ export interface BudgetLine {
   last_paid_amount: number | null
   last_paid_on: string | null
   last_paid_period: string | null
+  // Migration 21: the category behind category_id.
+  type_name: string | null
+  sub_type_name: string | null
 }
 
 export interface AccountAdmin {
