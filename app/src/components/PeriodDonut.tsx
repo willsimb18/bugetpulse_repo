@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { KIND_LABEL, fmt, fmtShort } from '../lib/format'
+import { fmt, fmtShort } from '../lib/format'
 import { BAD, GOOD, SERIES } from '../lib/chart'
 import type { BudgetLine, PeriodSummary } from '../lib/types'
 
@@ -11,10 +11,11 @@ import type { BudgetLine, PeriodSummary } from '../lib/types'
  * glance says both "what am I spending on" and "is any of it left", which
  * two separate charts would have said less well.
  *
- * Only four categories get a colour. SERIES holds four validated hues and
- * a fifth would have to be invented, so everything past the top four
- * folds into Other — which is also roughly where a ring stops being
- * readable. The legend still lists every one of them by name.
+ * Only four get a colour, whichever grouping is in force. SERIES holds
+ * four validated hues and a fifth would have to be invented, so
+ * everything past the top four folds into Other — which is also roughly
+ * where a ring stops being readable. The legend still names the fold and
+ * says how many are inside it.
  *
  * Over-allocated periods fill the ring completely and report the
  * shortfall in words rather than drawing an arc longer than the circle.
@@ -40,8 +41,10 @@ export function PeriodDonut({ lines, summary, groupBy }: {
   const parts = useMemo<Part[]>(() => {
     const by = new Map<string, number>()
     for (const l of lines) {
+      // "Accounts" means the individual bills and expenses on the budget --
+      // Mortgage, Water, Child Care -- not the four kinds they sit under.
       const key = groupBy === 'kind'
-        ? (KIND_LABEL[l.kind] ?? l.kind)
+        ? l.name
         : (l.type_name ?? 'Uncategorised')
       by.set(key, (by.get(key) ?? 0) + Number(l.amount_due ?? 0))
     }
@@ -81,7 +84,7 @@ export function PeriodDonut({ lines, summary, groupBy }: {
       <header className="px-3 pt-3">
         <h3 className="text-[15px]">Where this period is spoken for</h3>
         <p className="text-xs text-ink3 mt-0.5">
-          Everything due this period, by {groupBy === 'kind' ? 'type' : 'category'},
+          Everything due this period, by {groupBy === 'kind' ? 'account' : 'category'},
           against what came in.
         </p>
       </header>
