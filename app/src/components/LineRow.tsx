@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { fmt, fmtDate, urgencyOf } from '../lib/format'
+import { fmt, fmtDate, urgencyLabel, urgencyOf } from '../lib/format'
 import type { BudgetLine } from '../lib/types'
 
 const dot: Record<string, string> = {
@@ -58,6 +58,13 @@ export function LineRow({
             </span>
           )}
         </button>
+
+        <span className={`hidden md:block w-24 shrink-0 text-xs truncate ${
+          u === 'overdue' ? 'text-rust'
+            : u === 'soon' ? 'text-amber'
+            : paid ? 'text-moss' : 'text-ink3'}`}>
+          {urgencyLabel(line.due_date, line.status)}
+        </span>
 
         <span className="hidden sm:block w-36 shrink-0 text-xs text-ink2 truncate">
           {line.type_name ?? <span className="text-ink3">—</span>}

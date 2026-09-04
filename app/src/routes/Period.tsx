@@ -5,7 +5,7 @@ import { PeriodDonut } from '../components/PeriodDonut'
 import { Empty, Err } from '../components/Chrome'
 import { AddFunds } from '../components/AddFunds'
 import { supabase } from '../lib/supabase'
-import { fmt, fmtDate, KIND_LABEL } from '../lib/format'
+import { fmt, fmtDate, KIND_LABEL, URGENCY_LEGEND } from '../lib/format'
 import type { AccountKind, BudgetLine } from '../lib/types'
 
 const ORDER: AccountKind[] = ['bill', 'expense', 'debt', 'saving']
@@ -266,6 +266,17 @@ export function Period({ isOwner }: { isOwner: boolean }) {
                 </button>
               ))}
             </div>
+
+            <p className="flex flex-wrap items-center gap-x-4 gap-y-1 pt-2 pb-1
+                          text-[11px] text-ink3">
+              {URGENCY_LEGEND.map((l) => (
+                <span key={l.key} className="flex items-center gap-1.5">
+                  <span aria-hidden
+                    className={`w-1.5 h-1.5 rounded-full shrink-0 ${l.dot}`} />
+                  {l.label}
+                </span>
+              ))}
+            </p>
 
             {groups.map((g) => (
               <section key={g.key} className="mt-4">

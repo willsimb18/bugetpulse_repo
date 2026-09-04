@@ -29,6 +29,29 @@ export function urgencyOf(due: string, status: string) {
   return 'upcoming' as const
 }
 
+/*
+ * The dot's meaning in words. Same four states urgencyOf() returns, but
+ * said rather than coloured — the dot alone is meaning carried by hue,
+ * which nobody can decode on first sight and colourblind readers cannot
+ * decode at all.
+ */
+export function urgencyLabel(due: string, status: string) {
+  if (status === 'paid') return 'Paid'
+  if (status === 'partial') return 'Part paid'
+  const d = daysUntil(due)
+  if (d < 0) return `${Math.abs(d)} day${Math.abs(d) === 1 ? '' : 's'} late`
+  if (d === 0) return 'Due today'
+  if (d === 1) return 'Due tomorrow'
+  return `In ${d} days`
+}
+
+export const URGENCY_LEGEND: { key: string; dot: string; label: string }[] = [
+  { key: 'overdue',  dot: 'bg-rust', label: 'Overdue' },
+  { key: 'soon',     dot: 'bg-amber', label: 'Due within 3 days' },
+  { key: 'upcoming', dot: 'bg-rule', label: 'Later' },
+  { key: 'paid',     dot: 'bg-moss', label: 'Paid' },
+]
+
 export const KIND_LABEL: Record<string, string> = {
   bill: 'Bills', expense: 'Expenses', debt: 'Debt payments', saving: 'Savings',
 }
