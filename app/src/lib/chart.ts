@@ -38,6 +38,18 @@ export function shortDate(iso: string | null | undefined) {
   return new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
+/**
+ * Which week of the month a date falls in, 1-5 — the buckets the
+ * spreadsheet used for "by week due". Days 1-7 are the first week, 8-14
+ * the second, and so on, with the 29th onward falling into a short fifth.
+ */
+export const weekOfMonth = (iso: string) =>
+  Math.min(5, Math.floor((Number(iso.slice(8, 10)) - 1) / 7) + 1)
+
+export const WEEK_LABELS = [
+  '1st week', '2nd week', '3rd week', '4th week', '5th week',
+]
+
 /** "Aug 2025" for month buckets. */
 export function monthLabel(iso: string | null | undefined) {
   if (!iso) return '—'

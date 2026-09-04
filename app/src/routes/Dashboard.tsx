@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { Empty, Err } from '../components/Chrome'
 import { KIND_LABEL, fmt, fmtShort } from '../lib/format'
-import { BAD, GOOD, SERIES, maxAbs, monthLabel, shortDate, widthPct } from '../lib/chart'
+import { BAD, GOOD, SERIES, WEEK_LABELS, maxAbs, monthLabel, shortDate, weekOfMonth, widthPct } from '../lib/chart'
 import type { PeriodSummary } from '../lib/types'
 
 /* One row of v_current_budget — despite the name it covers all history. */
@@ -28,21 +28,31 @@ const yearOf = (iso: string) => iso.slice(0, 4)
 const THIS_YEAR = String(new Date().getFullYear())
 const monthOf = (iso: string) => Number(iso.slice(5, 7))
 
+/* One row of the slim all-years pull the year-on-year card needs. */
+interface YearLine { period_start: string; kind: string; amount_due: number; amount_paid: number }
+
 /* PostgREST caps a response; page until a short one comes back. */
-async function fetchLines(year: string): Promise<Line[]> {
-  const cols = 'budget_period_id,period_start,account_name,type_name,kind,due_date,amount_due,amount_paid,status'
+async function fetchPaged<T>(cols: string, year: string): Promise<T[]> {
   const size = 1000
-  const out: Line[] = []
+  const out: T[] = []
   for (let from = 0; ; from += size) {
     let q = supabase.from('v_current_budget').select(cols).order('period_start')
     if (year !== ALL) q = q.gte('period_start', `${year}-01-01`).lte('period_start', `${year}-12-31`)
     const { data, error } = await q.range(from, from + size - 1)
     if (error) throw new Error(error.message)
-    const rows = (data ?? []) as unknown as Line[]
+    const rows = (data ?? []) as unknown as T[]
     out.push(...rows)
     if (rows.length < size) return out
   }
 }
+
+const fetchLines = (year: string) => fetchPaged<Line>(
+  'budget_period_id,period_start,account_name,type_name,kind,due_date,amount_due,amount_paid,status',
+  year)
+
+/* Year on year needs every year, but only four columns of each row. */
+const fetchYearly = () => fetchPaged<YearLine>(
+  'period_start,kind,amount_due,amount_paid', ALL)
 
 /* ------------------------------------------------------------------ */
 
@@ -124,12 +134,131 @@ function RankedBars({ rows, total }: { rows: [string, number][]; total: number }
   )
 }
 
+/* ------------------------------------------------------------------ *
+ * Paychecks against expenses, by which week of the month they fall in.
+ * Two measures on one money scale, so one axis and two bars per row.
+ * ------------------------------------------------------------------ */
+function WeekDueChart({ periods, lines }: { periods: PeriodSummary[]; lines: Line[] }) {
+  const pay = [0, 0, 0, 0, 0]
+  const due = [0, 0, 0, 0, 0]
+  for (const p of periods) {
+    if (p.pay_date) pay[weekOfMonth(p.pay_date) - 1] += Number(p.wage_income ?? 0)
+  }
+  for (const l of lines) {
+    if (l.due_date) due[weekOfMonth(l.due_date) - 1] += Number(l.amount_due ?? 0)
+  }
+  const max = maxAbs([...pay, ...due])
+  if (max <= 1) return null
+
+  return (
+    <Card title="Paychecks against expenses, by week due"
+      note="Which week of the month the money arrives, and which week it leaves.">
+      <ul className="mt-2">
+        {WEEK_LABELS.map((label, i) => {
+          const shortfall = due[i] > pay[i]
+          return (
+            <li key={label} className="px-3 py-2">
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="text-[13px]">{label}</span>
+                <span className="num text-xs" style={{ color: shortfall ? BAD : GOOD }}>
+                  {shortfall ? '−' : '+'}{fmtShort(Math.abs(pay[i] - due[i]))}
+                </span>
+              </div>
+              <div className="mt-1.5 space-y-[3px]">
+                <div className="h-2" title={`Paychecks ${fmt(pay[i])}`}
+                  style={{ backgroundColor: SERIES[0], width: widthPct(pay[i], max) }} />
+                <div className="h-2" title={`Expenses ${fmt(due[i])}`}
+                  style={{ backgroundColor: SERIES[1], width: widthPct(due[i], max) }} />
+              </div>
+            </li>
+          )
+        })}
+      </ul>
+      <Legend items={[
+        { color: SERIES[0], label: 'Paychecks' },
+        { color: SERIES[1], label: 'Expenses due' },
+      ]} />
+    </Card>
+  )
+}
+
+/* ------------------------------------------------------------------ *
+ * Year on year. The spreadsheet split each year by isSaving, which is
+ * what keeps money put aside from reading as money spent — so savings
+ * are their own bar rather than being folded into bills.
+ *
+ * This card ignores the year filter on purpose: a single year compared
+ * against itself is not a year-on-year view.
+ * ------------------------------------------------------------------ */
+function YearOverYearChart({ rows, months }: { rows: YearLine[]; months: MonthRow[] }) {
+  const acc = new Map<string, { income: number; spend: number; saved: number }>()
+  const at = (y: string) => {
+    const cur = acc.get(y) ?? { income: 0, spend: 0, saved: 0 }
+    acc.set(y, cur)
+    return cur
+  }
+  for (const m of months) {
+    if (m.month) at(yearOf(m.month)).income += Number(m.income ?? 0)
+  }
+  for (const l of rows) {
+    const paid = Number(l.amount_paid || l.amount_due || 0)
+    if (!paid) continue
+    const y = at(yearOf(l.period_start))
+    if (l.kind === 'saving') y.saved += paid
+    else y.spend += paid
+  }
+
+  const years = [...acc.entries()]
+    .filter(([y, v]) => y <= THIS_YEAR && (v.income > 0 || v.spend > 0 || v.saved > 0))
+    .sort((a, b) => a[0].localeCompare(b[0]))
+  if (years.length === 0) return null
+
+  const max = maxAbs(years.flatMap(([, v]) => [v.income, v.spend, v.saved]))
+
+  return (
+    <Card title="Year on year"
+      note="Income against bills and expenses, with savings kept separate. Every year, whatever the filter says.">
+      <ul className="mt-2">
+        {years.map(([y, v]) => {
+          const net = v.income - v.spend
+          return (
+            <li key={y} className="px-3 py-2">
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="text-[13px] num">{y}</span>
+                <span className="num text-xs" style={{ color: net < 0 ? BAD : GOOD }}>
+                  {net < 0 ? '−' : '+'}{fmtShort(Math.abs(net))}
+                </span>
+              </div>
+              <div className="mt-1.5 space-y-[3px]">
+                <div className="h-2" title={`Income ${fmt(v.income)}`}
+                  style={{ backgroundColor: SERIES[0], width: widthPct(v.income, max) }} />
+                <div className="h-2" title={`Bills and expenses ${fmt(v.spend)}`}
+                  style={{ backgroundColor: SERIES[1], width: widthPct(v.spend, max) }} />
+                {v.saved > 0 && (
+                  <div className="h-2" title={`Savings ${fmt(v.saved)}`}
+                    style={{ backgroundColor: SERIES[2], width: widthPct(v.saved, max) }} />
+                )}
+              </div>
+            </li>
+          )
+        })}
+      </ul>
+      <Legend items={[
+        { color: SERIES[0], label: 'Income' },
+        { color: SERIES[1], label: 'Bills + expenses' },
+        { color: SERIES[2], label: 'Savings' },
+      ]} />
+    </Card>
+  )
+}
+
 /* ------------------------------------------------------------------ */
 
 export function Dashboard() {
   const [periods, setPeriods] = useState<PeriodSummary[]>([])
   const [months, setMonths] = useState<MonthRow[]>([])
   const [lines, setLines] = useState<Line[]>([])
+  const [yearly, setYearly] = useState<YearLine[]>([])
   const [err, setErr] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -167,6 +296,16 @@ export function Dashboard() {
       catch (e) { setErr(e instanceof Error ? e.message : String(e)) }
     })()
   }, [year, loading])
+
+  // Year on year is the one card that ignores the year filter, so it gets
+  // its own slim pull across every year, once.
+  useEffect(() => {
+    if (loading) return
+    void (async () => {
+      try { setYearly(await fetchYearly()) }
+      catch (e) { setErr(e instanceof Error ? e.message : String(e)) }
+    })()
+  }, [loading])
 
   // generate_budget_periods runs a year forward, so budget_period holds
   // future years with nothing in them. Keep them out of the picker.
@@ -377,6 +516,10 @@ export function Dashboard() {
                               { color: SERIES[1], label: 'Spending' }]} />
             </Card>
           )}
+
+          <WeekDueChart periods={shownPeriods} lines={shownLines} />
+
+          <YearOverYearChart rows={yearly} months={months} />
         </div>
       )}
 
