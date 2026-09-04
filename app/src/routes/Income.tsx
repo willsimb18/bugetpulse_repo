@@ -19,7 +19,9 @@ export function Income({ isOwner }: { isOwner: boolean }) {
   const [showCheck, setShowCheck] = useState(false)
   const [showRates, setShowRates] = useState(false)
   const [openRate, setOpenRate] = useState<number | null>(null)
-  const [periods, setPeriods] = useState<{ id: number; label: string | null; pay_date: string }[]>([])
+  const [periods, setPeriods] = useState<
+    { id: number; label: string | null; pay_date: string;
+      period_start: string; period_end: string }[]>([])
   const [allIncome, setAllIncome] = useState<IncomeRow[]>([])
 
   const load = useCallback(async () => {
@@ -29,9 +31,16 @@ export function Income({ isOwner }: { isOwner: boolean }) {
     ])
     setWages((w.data ?? []) as WageRow[])
     setEarners((e.data ?? []) as { id: number; display_name: string }[])
+    // The calendar runs a year ahead, so ordering by pay_date descending
+    // put 2027 at the top of the list. Take the periods around now
+    // instead: a little history to catch up on, then what is coming.
+    const from = new Date(Date.now() - 45 * 86_400_000).toISOString().slice(0, 10)
     const { data: p } = await supabase
-      .from('budget_period').select('id, label, pay_date')
-      .eq('is_closed', false).order('pay_date', { ascending: false }).limit(12)
+      .from('budget_period').select('id, label, pay_date, period_start, period_end')
+      .eq('is_closed', false)
+      .gte('period_end', from)
+      .order('pay_date', { ascending: true })
+      .limit(12)
     setPeriods((p ?? []) as typeof periods)
 
     // The list shows the last 40; the chart needs every month there is.
@@ -339,7 +348,8 @@ function PaycheckForm({
   earners, periods, onDone, onError,
 }: {
   earners: { id: number; display_name: string }[]
-  periods: { id: number; label: string | null; pay_date: string }[]
+  periods: { id: number; label: string | null; pay_date: string;
+             period_start: string; period_end: string }[]
   onDone: () => void
   onError: (m: string | null) => void
 }) {
@@ -350,7 +360,11 @@ function PaycheckForm({
 
   useEffect(() => {
     if (earnerId === '' && earners[0]) setEarnerId(earners[0].id)
-    if (periodId === '' && periods[0]) setPeriodId(periods[0].id)
+    if (periodId === '' && periods[0]) {
+      const today = new Date().toISOString().slice(0, 10)
+      const now = periods.find((p) => p.period_start <= today && today <= p.period_end)
+      setPeriodId((now ?? periods[0]).id)
+    }
   }, [earners, periods, earnerId, periodId])
 
   async function save() {
