@@ -57,6 +57,15 @@ export function useIdleSignOut(
   const lastWrite = useRef(0)
   const fired = useRef(false)
 
+  // onIdle is held in a ref, and deliberately NOT an effect dependency.
+  // A caller passing a fresh closure each render -- which is the normal
+  // thing to do -- would otherwise restart the effect on every render,
+  // and the effect resets the clock. Showing the warning re-renders, so
+  // the timer reset itself the moment it was about to fire and could
+  // never reach the limit.
+  const onIdleRef = useRef(onIdle)
+  useEffect(() => { onIdleRef.current = onIdle }, [onIdle])
+
   useEffect(() => {
     if (!enabled) { setWarning(false); return }
 
@@ -84,7 +93,7 @@ export function useIdleSignOut(
         fired.current = true
         setWarning(false)
         clearIdleClock()
-        onIdle()
+        onIdleRef.current()
       }
     }
 
@@ -99,7 +108,7 @@ export function useIdleSignOut(
       document.removeEventListener('visibilitychange', check)
       window.clearInterval(id)
     }
-  }, [enabled, minutes, onIdle])
+  }, [enabled, minutes])
 
   return warning
 }

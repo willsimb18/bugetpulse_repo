@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 import type { Profile } from '../lib/types'
@@ -36,11 +36,15 @@ export function useAuth() {
     return () => { cancelled = true }
   }, [session])
 
+  // Stable identity: this ends up in effect dependencies, and a fresh
+  // closure each render restarts whatever depends on it.
+  const signOut = useCallback(() => { void supabase.auth.signOut() }, [])
+
   return {
     session,
     profile,
     loading,
     isOwner: profile?.role === 'owner',
-    signOut: () => supabase.auth.signOut(),
+    signOut,
   }
 }
