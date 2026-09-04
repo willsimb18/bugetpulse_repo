@@ -5,7 +5,8 @@ import { PeriodDonut } from '../components/PeriodDonut'
 import { Empty, Err } from '../components/Chrome'
 import { AddFunds } from '../components/AddFunds'
 import { supabase } from '../lib/supabase'
-import { fmt, fmtDate, KIND_LABEL, URGENCY_LEGEND } from '../lib/format'
+import { fmt, fmtDate, KIND_LABEL, URGENCY_LEGEND, urgencyLabel } from '../lib/format'
+import { downloadCsv, toCsv } from '../lib/csv'
 import type { AccountKind, BudgetLine } from '../lib/types'
 
 const ORDER: AccountKind[] = ['bill', 'expense', 'debt', 'saving']
@@ -121,6 +122,38 @@ export function Period({ isOwner }: { isOwner: boolean }) {
   const [addingLine, setAddingLine] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
   const [groupBy, setGroupBy] = useState<'kind' | 'category'>('kind')
+
+  // Exports the period on screen, in the order it is on screen, so the
+  // file matches what was being looked at when the button was pressed.
+  function exportCsv() {
+    if (!current) return
+    const rows = groups.flatMap((g) =>
+      g.items.map((l) => [
+        current.period_start,
+        current.label ?? '',
+        groupBy === 'kind' ? KIND_LABEL[l.kind] ?? l.kind : g.label,
+        l.name,
+        l.type_name ?? '',
+        l.sub_type_name ?? '',
+        l.kind,
+        l.due_date,
+        l.status,
+        urgencyLabel(l.due_date, l.status),
+        Number(l.amount_due ?? 0).toFixed(2),
+        Number(l.amount_paid ?? 0).toFixed(2),
+        l.paid_on ?? '',
+        l.last_paid_amount == null ? '' : Number(l.last_paid_amount).toFixed(2),
+        l.last_paid_on ?? '',
+      ]))
+
+    const csv = toCsv([
+      'period_start', 'period_label', 'group', 'name', 'category', 'sub_category',
+      'kind', 'due_date', 'status', 'due_in', 'amount_due', 'amount_paid',
+      'paid_on', 'last_paid_amount', 'last_paid_on',
+    ], rows)
+
+    downloadCsv(`budgetpulse-${current.period_start}.csv`, csv)
+  }
   const [upkeep, setUpkeep] = useState<string | null>(null)
 
   // The same thing the nightly job runs: extend the calendar, then
@@ -227,6 +260,12 @@ export function Period({ isOwner }: { isOwner: boolean }) {
               title={editable ? undefined : 'Only the current pay period can be changed'}
               onClick={() => setAddingLine((a) => !a)}>
               {addingLine ? 'Cancel' : '+ One-off expense'}
+            </button>
+
+            <button className="btn ml-2" disabled={lines.length === 0}
+              title="Download this period's budget as a CSV"
+              onClick={exportCsv}>
+              Export CSV
             </button>
 
             <button className="btn ml-2" disabled={refreshing}
