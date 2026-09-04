@@ -325,7 +325,8 @@ export function Period({ isOwner }: { isOwner: boolean }) {
             <AdHocLine periodId={current.id} onError={setErr}
               onDone={() => { setAddingLine(false); reload() }} />
           )}
-          <AddFunds periodId={current.id} rows={funding} onChange={reload} onError={setErr} />
+          <AddFunds periodId={current.id} rows={funding} editable={editable}
+            onChange={reload} onError={setErr} />
         </>
       )}
 

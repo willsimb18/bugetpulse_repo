@@ -11,14 +11,18 @@ const SOURCES = [
 ] as const
 
 export function AddFunds({
-  periodId, rows, onChange, onError,
+  periodId, rows, editable, onChange, onError,
 }: {
   periodId: number
   rows: Funding[]
+  /** False outside the period we are currently in — the list stays
+      readable, but nothing can be added or taken back out. */
+  editable: boolean
   onChange: () => void
   onError: (m: string | null) => void
 }) {
   const [open, setOpen] = useState(false)
+  const isOpen = open && editable
   const [kind, setKind] = useState<string>('from_savings')
   const [amount, setAmount] = useState('')
   const [accountId, setAccountId] = useState<number | ''>('')
@@ -29,10 +33,10 @@ export function AddFunds({
   const needs = SOURCES.find((s) => s.kind === kind)?.needs ?? null
 
   useEffect(() => {
-    if (!open) return
+    if (!isOpen) return
     supabase.from('account').select('id, name, kind').eq('is_active', true).order('name')
       .then(({ data }) => setAccounts((data ?? []) as typeof accounts))
-  }, [open])
+  }, [isOpen])
 
   useEffect(() => { setAccountId('') }, [kind])
 
@@ -64,9 +68,15 @@ export function AddFunds({
     <section className="mt-6">
       <div className="flex items-baseline justify-between mb-1">
         <h2 className="eyebrow">Money moved in</h2>
-        <button className="eyebrow hover:text-ink" onClick={() => setOpen((o) => !o)}>
-          {open ? 'Cancel' : '+ Add funds'}
-        </button>
+        {editable ? (
+          <button className="eyebrow hover:text-ink" onClick={() => setOpen((o) => !o)}>
+            {isOpen ? 'Cancel' : '+ Add funds'}
+          </button>
+        ) : (
+          <span className="eyebrow" title="Only the current pay period can be changed">
+            closed
+          </span>
+        )}
       </div>
 
       {rows.length > 0 && (
@@ -81,14 +91,16 @@ export function AddFunds({
                 {f.notes && <span className="eyebrow">{f.notes}</span>}
               </span>
               <span className="num text-[15px]">{fmt(f.amount)}</span>
-              <button onClick={() => remove(f.id)} aria-label="Remove"
-                className="text-ink3 hover:text-rust px-1">×</button>
+              {editable && (
+                <button onClick={() => remove(f.id)} aria-label="Remove"
+                  className="text-ink3 hover:text-rust px-1">×</button>
+              )}
             </li>
           ))}
         </ul>
       )}
 
-      {open && (
+      {isOpen && (
         <div className="border border-rule p-3 space-y-3">
           <div className="flex flex-wrap gap-2">
             {SOURCES.map((s) => (
