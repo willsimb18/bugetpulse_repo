@@ -12,7 +12,12 @@ import { Debts } from './routes/Debts'
 
 // An hour of nothing signs you out. Household finances on a machine
 // someone else may sit down at.
-const IDLE_MINUTES = 60
+//
+// VITE_IDLE_MINUTES overrides it, which is how this gets tested without
+// waiting an hour: 0.5 is thirty seconds. It is set in app/.env.dev and
+// deliberately absent from .env.prod, so production always falls back to
+// the hour even if a dev value is merged by accident.
+const IDLE_MINUTES = Number(import.meta.env.VITE_IDLE_MINUTES) || 60
 
 export default function App() {
   const { session, profile, loading, isOwner, signOut } = useAuth()

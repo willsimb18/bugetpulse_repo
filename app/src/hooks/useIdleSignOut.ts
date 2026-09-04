@@ -13,8 +13,17 @@ import { useEffect, useRef, useState } from 'react'
  * that only matters to the minute.
  */
 const KEY = 'bp:last-active'
-const WRITE_EVERY_MS = 60_000
-const CHECK_EVERY_MS = 30_000
+
+/*
+ * Both of these scale with the timeout. At the hour they are a minute and
+ * thirty seconds — cheap. At the half minute used for testing they become
+ * three and five seconds, because a throttle longer than the timeout would
+ * mean moving the mouse failed to reset the clock, and a check interval
+ * longer than it would mean signing out at some arbitrary point after the
+ * limit rather than at it.
+ */
+const writeEvery = (limit: number) => Math.min(60_000, Math.max(1_000, limit / 10))
+const checkEvery = (limit: number) => Math.min(30_000, Math.max(1_000, limit / 6))
 
 const EVENTS = [
   'mousedown', 'keydown', 'wheel', 'touchstart', 'pointerdown', 'scroll',
@@ -58,7 +67,7 @@ export function useIdleSignOut(
     const touch = () => {
       const now = Date.now()
       setWarning(false)
-      if (now - lastWrite.current < WRITE_EVERY_MS) return
+      if (now - lastWrite.current < writeEvery(limit)) return
       lastWrite.current = now
       write(now)
     }
@@ -66,9 +75,11 @@ export function useIdleSignOut(
     const check = () => {
       if (fired.current) return
       const idle = Date.now() - read()
-      // Warn in the last two minutes, so a half-typed amount isn't lost
-      // without notice.
-      setWarning(idle > limit - 120_000 && idle < limit)
+      // Warn for the last stretch, so a half-typed amount isn't lost
+      // without notice. Two minutes normally, but proportional on a short
+      // timeout — a 30-second test would otherwise warn from the start.
+      const warnFor = Math.min(120_000, limit * 0.2)
+      setWarning(idle > limit - warnFor && idle < limit)
       if (idle >= limit) {
         fired.current = true
         setWarning(false)
@@ -80,7 +91,7 @@ export function useIdleSignOut(
     for (const e of EVENTS) window.addEventListener(e, touch, { passive: true })
     // Coming back to the tab is the moment a long absence shows up.
     document.addEventListener('visibilitychange', check)
-    const id = window.setInterval(check, CHECK_EVERY_MS)
+    const id = window.setInterval(check, checkEvery(limit))
     check()
 
     return () => {
