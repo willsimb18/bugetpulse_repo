@@ -20,7 +20,7 @@ import type { BudgetLine, PeriodSummary } from '../lib/types'
  * shortfall in words rather than drawing an arc longer than the circle.
  */
 const SLICES = 4
-const R = 52
+const R = 68
 const C = 2 * Math.PI * R
 
 interface Part { name: string; amount: number; color: string }
@@ -73,7 +73,7 @@ export function PeriodDonut({ lines, summary }: {
   })
 
   return (
-    <section className="border border-rule mt-4">
+    <section className="border border-rule">
       <header className="px-3 pt-3">
         <h3 className="text-[15px]">Where this period is spoken for</h3>
         <p className="text-xs text-ink3 mt-0.5">
@@ -81,15 +81,15 @@ export function PeriodDonut({ lines, summary }: {
         </p>
       </header>
 
-      <div className="p-3 flex flex-wrap items-center gap-x-6 gap-y-4">
+      <div className="p-3 flex flex-wrap items-center justify-center gap-x-6 gap-y-4">
         <div className="relative shrink-0">
-          <svg width="132" height="132" viewBox="0 0 132 132" role="img"
+          <svg width="172" height="172" viewBox="0 0 172 172" role="img"
             aria-label={`${fmt(allocated)} allocated of ${fmt(income)} income`}>
-            <g transform="translate(66,66) rotate(-90)">
-              <circle r={R} fill="none" strokeWidth="16"
+            <g transform="translate(86,86) rotate(-90)">
+              <circle r={R} fill="none" strokeWidth="20"
                 stroke="rgb(var(--rule) / 0.45)" />
               {arcs.map((a) => (
-                <circle key={a.name} r={R} fill="none" strokeWidth="16"
+                <circle key={a.name} r={R} fill="none" strokeWidth="20"
                   stroke={a.color}
                   strokeDasharray={`${Math.max(0, a.len - 2)} ${C}`}
                   strokeDashoffset={a.offset}
@@ -106,13 +106,13 @@ export function PeriodDonut({ lines, summary }: {
           {/* The number people actually came for, in the hole. */}
           <div className="absolute inset-0 grid place-items-center pointer-events-none">
             <div className="text-center">
-              <p className="num text-[17px] leading-none">{fmtShort(income)}</p>
+              <p className="num text-[21px] leading-none">{fmtShort(income)}</p>
               <p className="eyebrow mt-1">came in</p>
             </div>
           </div>
         </div>
 
-        <dl className="flex-1 min-w-[13rem] text-[13px]">
+        <dl className="flex-1 min-w-[14rem] text-[13px]">
           {parts.map((p) => (
             <div key={p.name}
               className={`flex items-baseline justify-between gap-3 py-0.5 ${

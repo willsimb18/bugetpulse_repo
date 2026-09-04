@@ -120,8 +120,7 @@ export function Period({ isOwner }: { isOwner: boolean }) {
   const [err, setErr] = useState<string | null>(null)
   const [addingLine, setAddingLine] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
-  // Two ways of showing the category, side by side for comparison.
-  const [categoryAs, setCategoryAs] = useState<'subtitle' | 'column'>('subtitle')
+  const [groupBy, setGroupBy] = useState<'kind' | 'category'>('kind')
   const [upkeep, setUpkeep] = useState<string | null>(null)
 
   // The same thing the nightly job runs: extend the calendar, then
@@ -149,15 +148,25 @@ export function Period({ isOwner }: { isOwner: boolean }) {
     reload()
   }
 
-  const grouped = useMemo(() => {
-    const g = new Map<AccountKind, BudgetLine[]>()
+  const groups = useMemo(() => {
+    const g = new Map<string, BudgetLine[]>()
     for (const l of lines) {
-      const arr = g.get(l.kind) ?? []
-      arr.push(l)
-      g.set(l.kind, arr)
+      const key = groupBy === 'kind' ? l.kind : (l.type_name ?? 'Uncategorised')
+      g.set(key, [...(g.get(key) ?? []), l])
     }
-    return g
-  }, [lines])
+    const total = (ls: BudgetLine[]) =>
+      ls.reduce((t, l) => t + Number(l.amount_due ?? 0), 0)
+
+    if (groupBy === 'kind') {
+      return ORDER.filter((k) => g.has(k)).map((k) => ({
+        key: k, label: KIND_LABEL[k], items: g.get(k)!, total: total(g.get(k)!),
+      }))
+    }
+    // Biggest first — the order you would want to read a spend breakdown in.
+    return [...g.entries()]
+      .map(([key, items]) => ({ key, label: key, items, total: total(items) }))
+      .sort((a, b) => b.total - a.total)
+  }, [lines, groupBy])
 
   if (!current) return <Empty>No pay periods yet. Generate them from the Bills tab.</Empty>
 
@@ -238,45 +247,46 @@ export function Period({ isOwner }: { isOwner: boolean }) {
         </>
       )}
 
-      {!loading && lines.length > 0 && (
-        <PeriodDonut lines={lines} summary={summary} />
-      )}
-
-      {!loading && lines.length > 0 && (
-        <div className="flex items-center gap-1.5 pt-5">
-          <span className="eyebrow">Category</span>
-          {(['subtitle', 'column'] as const).map((v) => (
-            <button key={v}
-              className={`btn py-0.5 text-[11px] ${
-                categoryAs === v ? 'bg-ink text-paper border-ink' : ''}`}
-              onClick={() => setCategoryAs(v)}>
-              {v === 'subtitle' ? 'As subtitle' : 'As column'}
-            </button>
-          ))}
-        </div>
-      )}
-
       {loading ? (
         <Empty>Loading…</Empty>
       ) : lines.length === 0 ? (
         <Empty>Nothing scheduled in this period yet.</Empty>
       ) : (
-        ORDER.filter((k) => grouped.has(k)).map((kind) => (
-          <section key={kind} className="mt-6">
-            <div className="flex items-baseline justify-between mb-1">
-              <h2 className="eyebrow">{KIND_LABEL[kind]}</h2>
-              <span className="num text-xs text-ink3">
-                {fmt(grouped.get(kind)!.reduce((s, l) => s + Number(l.amount_due), 0))}
-              </span>
-            </div>
-            <ul className="border border-rule">
-              {grouped.get(kind)!.map((l) => (
-                <LineRow key={l.id} line={l} isOwner={isOwner} editable={editable}
-                  categoryAs={categoryAs} onChange={reload} onError={setErr} />
+        <div className="grid gap-x-6 gap-y-6 items-start
+                        xl:grid-cols-[minmax(0,1fr)_minmax(0,26rem)]">
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5 pt-4 pb-1">
+              <span className="eyebrow">List by</span>
+              {([['kind', 'Accounts'], ['category', 'Category']] as const).map(([v, label]) => (
+                <button key={v}
+                  className={`btn py-0.5 text-[11px] ${
+                    groupBy === v ? 'bg-ink text-paper border-ink' : ''}`}
+                  onClick={() => setGroupBy(v)}>
+                  {label}
+                </button>
               ))}
-            </ul>
-          </section>
-        ))
+            </div>
+
+            {groups.map((g) => (
+              <section key={g.key} className="mt-4">
+                <div className="flex items-baseline justify-between mb-1">
+                  <h2 className="eyebrow">{g.label}</h2>
+                  <span className="num text-xs text-ink3">{fmt(g.total)}</span>
+                </div>
+                <ul className="border border-rule">
+                  {g.items.map((l) => (
+                    <LineRow key={l.id} line={l} isOwner={isOwner} editable={editable}
+                      onChange={reload} onError={setErr} />
+                  ))}
+                </ul>
+              </section>
+            ))}
+          </div>
+
+          <div className="min-w-0 xl:pt-4">
+            <PeriodDonut lines={lines} summary={summary} />
+          </div>
+        </div>
       )}
     </>
   )

@@ -4,7 +4,7 @@ import { useTheme } from '../hooks/useTheme'
 
 // The list pages read best as one narrow column. The debt page is the only
 // one carrying a dashboard beside its list, so it gets the full width.
-const WIDE_ROUTES = ['/debts', '/dashboard', '/income']
+const WIDE_ROUTES = ['/', '/debts', '/dashboard', '/income']
 
 const tabs = [
   { to: '/', label: 'Budget', end: true },
