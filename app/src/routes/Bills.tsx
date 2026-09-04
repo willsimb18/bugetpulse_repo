@@ -9,6 +9,7 @@ const MODE_HELP: Record<AmountMode, string> = {
   carry_forward: 'Repeats what you last paid',
   fixed: 'Always the set amount',
   percent_of_income: 'A share of the period income',
+  split_monthly: 'A monthly figure, split across the paychecks in the month',
 }
 
 export function Bills({ isOwner }: { isOwner: boolean }) {
@@ -140,6 +141,8 @@ export function Bills({ isOwner }: { isOwner: boolean }) {
               <div className="px-3 pb-3 space-y-3">
                 <p className="text-xs text-ink3">
                   {MODE_HELP[a.amount_mode]}
+                  {a.amount_mode === 'split_monthly' &&
+                    ' — the amount below is the whole month'}
                   {a.last_paid_on && ` · last paid ${fmt(a.last_paid_amount)} on ${fmtDate(a.last_paid_on)}`}
                   {` · ${a.open_lines} open`}
                 </p>
@@ -178,6 +181,7 @@ export function Bills({ isOwner }: { isOwner: boolean }) {
                         <option value="carry_forward">Carry forward last payment</option>
                         <option value="fixed">Fixed amount</option>
                         <option value="percent_of_income">Percent of income</option>
+                        <option value="split_monthly">Split monthly across paychecks</option>
                       </select>
                     </label>
 

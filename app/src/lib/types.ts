@@ -1,6 +1,6 @@
 export type AccountKind = 'bill' | 'debt' | 'saving' | 'expense'
 export type LineStatus = 'scheduled' | 'paid' | 'partial' | 'skipped'
-export type AmountMode = 'carry_forward' | 'fixed' | 'percent_of_income'
+export type AmountMode = 'carry_forward' | 'fixed' | 'percent_of_income' | 'split_monthly'
 export type Role = 'owner' | 'member'
 
 export interface Profile {
