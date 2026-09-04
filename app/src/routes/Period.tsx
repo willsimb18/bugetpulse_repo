@@ -118,6 +118,33 @@ export function Period({ isOwner }: { isOwner: boolean }) {
   const { summary, lines, funding, loading, reload } = usePeriodDetail(current?.id ?? null)
   const [err, setErr] = useState<string | null>(null)
   const [addingLine, setAddingLine] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
+  const [upkeep, setUpkeep] = useState<string | null>(null)
+
+  // The same thing the nightly job runs: extend the calendar, then
+  // materialise and reprice every open period. Idempotent, so pressing it
+  // when there is nothing to do simply reports nothing to do.
+  async function refreshBudget() {
+    setRefreshing(true); setErr(null); setUpkeep(null)
+    const { data, error } = await supabase.rpc('run_budget_upkeep')
+    setRefreshing(false)
+    if (error) { setErr(error.message); return }
+    const rows = (data ?? []) as {
+      periods_added: number; lines_created: number; lines_repriced: number
+    }[]
+    const t = rows.reduce((a, r) => ({
+      p: a.p + Number(r.periods_added ?? 0),
+      c: a.c + Number(r.lines_created ?? 0),
+      r: a.r + Number(r.lines_repriced ?? 0),
+    }), { p: 0, c: 0, r: 0 })
+    setUpkeep(
+      t.p === 0 && t.c === 0 && t.r === 0
+        ? 'Already up to date.'
+        : `${t.p} period${t.p === 1 ? '' : 's'} added · `
+          + `${t.c} line${t.c === 1 ? '' : 's'} created · `
+          + `${t.r} repriced.`)
+    reload()
+  }
 
   const grouped = useMemo(() => {
     const g = new Map<AccountKind, BudgetLine[]>()
@@ -189,6 +216,16 @@ export function Period({ isOwner }: { isOwner: boolean }) {
               onClick={() => setAddingLine((a) => !a)}>
               {addingLine ? 'Cancel' : '+ One-off expense'}
             </button>
+
+            <button className="btn ml-2" disabled={refreshing}
+              title="Extend the pay calendar and rebuild any missing lines. Runs nightly anyway."
+              onClick={() => void refreshBudget()}>
+              {refreshing ? 'Refreshing…' : 'Refresh budget'}
+            </button>
+
+            {upkeep && (
+              <span className="eyebrow ml-3 normal-case tracking-normal">{upkeep}</span>
+            )}
           </div>
           {addingLine && (
             <AdHocLine periodId={current.id} onError={setErr}
