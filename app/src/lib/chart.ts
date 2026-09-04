@@ -21,8 +21,13 @@
  * The actual values live in index.css so a theme swap repaints every
  * chart with no React involved.
  */
+// Wrapped in rgb() on purpose: the variables hold space-separated
+// channels ("43 108 163") so Tailwind can composite an alpha onto them.
+// Used bare, `var(--series-1)` resolves to an invalid colour and paints
+// nothing at all.
 export const SERIES = [
-  'var(--series-1)', 'var(--series-2)', 'var(--series-3)', 'var(--series-4)',
+  'rgb(var(--series-1))', 'rgb(var(--series-2))',
+  'rgb(var(--series-3))', 'rgb(var(--series-4))',
 ] as const
 
 /*
@@ -30,8 +35,8 @@ export const SERIES = [
  * so a surplus reads the same here as a paid row does elsewhere. Both
  * always ship with words beside them, never colour alone.
  */
-export const GOOD = 'var(--good)'
-export const BAD = 'var(--bad)'
+export const GOOD = 'rgb(var(--good))'
+export const BAD = 'rgb(var(--bad))'
 
 /** Largest absolute value in a set, for a shared axis. 0 never divides. */
 export const maxAbs = (xs: number[]) => Math.max(1, ...xs.map((x) => Math.abs(x)))
