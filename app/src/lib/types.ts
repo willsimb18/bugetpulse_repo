@@ -70,7 +70,10 @@ export interface BudgetLine {
   amount_paid: number
   amount_overridden: boolean
   status: LineStatus
+  /** The date the payment counts against — backdated on a late settle. */
   paid_on: string | null
+  /** The day it was actually ticked. Migration 22. */
+  settled_on: string | null
   paid_by: string | null
   funds_held: boolean
   is_manual: boolean

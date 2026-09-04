@@ -161,7 +161,7 @@ export function Period({ isOwner }: { isOwner: boolean }) {
         l.due_date, l.status, urgencyLabel(l.due_date, l.status),
         Number(l.amount_due ?? 0).toFixed(2),
         Number(l.amount_paid ?? 0).toFixed(2),
-        l.paid_on ?? '',
+        l.paid_on ?? '', l.settled_on ?? '',
         l.last_paid_amount == null ? '' : Number(l.last_paid_amount).toFixed(2),
         l.last_paid_on ?? '',
         ...totals,
@@ -172,7 +172,7 @@ export function Period({ isOwner }: { isOwner: boolean }) {
       ...(wage > 0 ? [[
         'income', ...period, 'Income', 'Paycheck', '', '', '', 'regular',
         current.pay_date, 'received', '', '', wage.toFixed(2),
-        current.pay_date, '', '', ...totals,
+        current.pay_date, current.pay_date, '', '', ...totals,
       ]] : []),
       ...funding.map((f) => [
         'income', ...period, 'Income',
@@ -180,7 +180,7 @@ export function Period({ isOwner }: { isOwner: boolean }) {
         '', '', '', f.kind,
         f.received_on, 'received', '', '',
         Number(f.amount ?? 0).toFixed(2),
-        f.received_on, '', '', ...totals,
+        f.received_on, f.received_on, '', '', ...totals,
       ]),
     ]
 
@@ -188,7 +188,7 @@ export function Period({ isOwner }: { isOwner: boolean }) {
       'row_type', 'period_start', 'period_label', 'group', 'name',
       'category', 'sub_category', 'kind', 'income_type',
       'due_date', 'status', 'due_in',
-      'amount_due', 'amount_paid', 'paid_on',
+      'amount_due', 'amount_paid', 'paid_on', 'settled_on',
       'last_paid_amount', 'last_paid_on',
       'period_income_total', 'period_income_from_pay',
       'period_income_from_savings', 'period_income_from_credit',

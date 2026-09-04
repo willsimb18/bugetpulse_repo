@@ -45,6 +45,11 @@ export function LineRow({
           <span className={`block truncate text-[15px] ${paid ? 'text-ink3 line-through' : ''}`}>
             {line.name}
           </span>
+          {line.settled_on && line.paid_on && line.settled_on !== line.paid_on && (
+            <span className="eyebrow block normal-case tracking-normal text-ink3">
+              counted {fmtDate(line.paid_on)} · settled {fmtDate(line.settled_on)}
+            </span>
+          )}
           <span className="eyebrow block">
             {fmtDate(line.due_date)}
             {u === 'overdue' && !paid && <span className="text-rust"> · overdue</span>}
