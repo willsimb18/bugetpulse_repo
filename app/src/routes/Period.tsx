@@ -284,7 +284,7 @@ export function Period({ isOwner }: { isOwner: boolean }) {
           </div>
 
           <div className="min-w-0 xl:pt-4">
-            <PeriodDonut lines={lines} summary={summary} />
+            <PeriodDonut lines={lines} summary={summary} groupBy={groupBy} />
           </div>
         </div>
       )}

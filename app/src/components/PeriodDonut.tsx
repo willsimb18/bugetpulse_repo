@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { fmt, fmtShort } from '../lib/format'
+import { KIND_LABEL, fmt, fmtShort } from '../lib/format'
 import { BAD, GOOD, SERIES } from '../lib/chart'
 import type { BudgetLine, PeriodSummary } from '../lib/types'
 
@@ -25,9 +25,11 @@ const C = 2 * Math.PI * R
 
 interface Part { name: string; amount: number; color: string }
 
-export function PeriodDonut({ lines, summary }: {
+export function PeriodDonut({ lines, summary, groupBy }: {
   lines: BudgetLine[]
   summary: PeriodSummary | null
+  /** Mirrors the list's grouping, so both answer the same question. */
+  groupBy: 'kind' | 'category'
 }) {
   const [hover, setHover] = useState<string | null>(null)
 
@@ -38,7 +40,9 @@ export function PeriodDonut({ lines, summary }: {
   const parts = useMemo<Part[]>(() => {
     const by = new Map<string, number>()
     for (const l of lines) {
-      const key = l.type_name ?? 'Uncategorised'
+      const key = groupBy === 'kind'
+        ? (KIND_LABEL[l.kind] ?? l.kind)
+        : (l.type_name ?? 'Uncategorised')
       by.set(key, (by.get(key) ?? 0) + Number(l.amount_due ?? 0))
     }
     const ranked = [...by.entries()]
@@ -53,7 +57,7 @@ export function PeriodDonut({ lines, summary }: {
       ? [...top, { name: `Other (${ranked.length - SLICES})`, amount: rest,
                    color: 'rgb(var(--ink3))' }]
       : top
-  }, [lines])
+  }, [lines, groupBy])
 
   const allocated = parts.reduce((t, p) => t + p.amount, 0)
   if (allocated === 0 && income === 0) return null
@@ -77,7 +81,8 @@ export function PeriodDonut({ lines, summary }: {
       <header className="px-3 pt-3">
         <h3 className="text-[15px]">Where this period is spoken for</h3>
         <p className="text-xs text-ink3 mt-0.5">
-          Every bill and expense due, grouped by category, against what came in.
+          Everything due this period, by {groupBy === 'kind' ? 'type' : 'category'},
+          against what came in.
         </p>
       </header>
 
