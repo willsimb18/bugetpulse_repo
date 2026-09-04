@@ -8,8 +8,8 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       manifest: {
-        name: 'BudgetPulse — household budget',
-        short_name: 'BudgetPulse',
+        name: 'Budget Pulse — household budget',
+        short_name: 'Budget Pulse',
         start_url: '/',
         display: 'standalone',
         background_color: '#FBFCFA',

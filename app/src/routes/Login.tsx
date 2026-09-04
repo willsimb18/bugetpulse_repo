@@ -17,7 +17,7 @@ export function Login() {
   return (
     <div className="min-h-dvh grid place-items-center px-6">
       <div className="w-full max-w-xs">
-        <h1 className="font-mono text-[13px] tracking-[0.18em] uppercase mb-1">BudgetPulse</h1>
+        <h1 className="font-mono text-[13px] tracking-[0.18em] uppercase mb-1">Budget Pulse</h1>
         <p className="text-sm text-ink3 mb-6">Household budget</p>
 
         <div className="space-y-3">

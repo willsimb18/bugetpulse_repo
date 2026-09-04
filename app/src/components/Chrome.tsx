@@ -20,7 +20,7 @@ export function Chrome({
   return (
     <div className="min-h-dvh flex flex-col">
       <header className="pl-6 pr-4 pt-5 pb-3 flex items-baseline justify-between">
-        <h1 className="font-mono text-[13px] tracking-[0.18em] uppercase">BudgetPulse</h1>
+        <h1 className="font-mono text-[13px] tracking-[0.18em] uppercase">Budget Pulse</h1>
         <button onClick={onSignOut} className="eyebrow hover:text-ink">
           {who} · sign out
         </button>
