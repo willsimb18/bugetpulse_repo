@@ -14,6 +14,11 @@
 --
 -- old_row.status = 'paid' and new_row.status is something else is exactly
 -- the shape of an untick.
+--
+-- audit_log.row_id is text, because the table records changes to rows
+-- keyed on a bigint and on a uuid alike. So the bigint side is cast, not
+-- the text side — casting row_id to bigint would fail the moment the
+-- query touched an audit entry for a uuid-keyed table.
 -- ---------------------------------------------------------------------
 select
   a.changed_at,
@@ -27,7 +32,7 @@ select
   a.old_row ->> 'amount_paid'       as was_paid,
   a.old_row ->> 'paid_on'           as was_paid_on
 from v_audit_trail a
-join budget_line l  on l.id = a.row_id
+join budget_line l  on l.id::text = a.row_id
 join budget_period p on p.id = l.budget_period_id
 where a.table_name = 'budget_line'
   and a.action = 'UPDATE'
@@ -57,7 +62,7 @@ begin
   select a.old_row into v_old
   from v_audit_trail a
   where a.table_name = 'budget_line'
-    and a.row_id = v_line
+    and a.row_id = v_line::text
     and a.old_row ->> 'status' = 'paid'
   order by a.changed_at desc
   limit 1;
