@@ -160,10 +160,11 @@ export function Bills({ isOwner }: { isOwner: boolean }) {
 
       {isOwner && (
         <div className="flex flex-wrap gap-2 pb-3">
-          {(['bill', 'expense', 'saving'] as AccountKind[]).map((k) => (
+          {/* Expenses are added from the Budget tab, against a period. */}
+          {(['bill', 'saving'] as AccountKind[]).map((k) => (
             <button key={k} className={`btn ${adding === k ? 'bg-ink text-paper border-ink' : ''}`}
               onClick={() => setAdding(adding === k ? null : k)}>
-              + {k === 'bill' ? 'Bill' : k === 'expense' ? 'Expense' : 'Savings'}
+              + {k === 'bill' ? 'Bill' : 'Savings'}
             </button>
           ))}
         </div>

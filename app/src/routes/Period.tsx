@@ -33,6 +33,7 @@ function AdHocLine({
   // True once the category has been chosen by hand — after that a new
   // suggestion is offered but never applied over the top of it.
   const [touched, setTouched] = useState(false)
+  const [repeat, setRepeat] = useState(false)
 
   // Everything ever spent on, from the catalogue and from past one-offs.
   useEffect(() => {
@@ -76,18 +77,40 @@ function AdHocLine({
       .slice(0, 8)
   }, [known, name])
 
+  /*
+   * Two different things share this form.
+   *
+   * A one-off writes a budget_line with account_id null — it exists in
+   * this period and nowhere else, which is right for a car repair and is
+   * also why it never shows on the Bills page: that page lists accounts,
+   * and a one-off has none.
+   *
+   * Repeating creates a real account instead, marked always-due so it
+   * lands on every period. create_account materialises the open periods
+   * itself, so it appears on this one straight away as well.
+   */
   async function save() {
     setBusy(true); onError(null)
-    // No catalog entry — this is a one-time thing that only exists in this
-    // period, like a car repair.
-    const { error } = await supabase.rpc('add_adhoc_line', {
-      p_period_id: periodId,
-      p_name: name,
-      p_amount: Number(amount || 0),
-      p_category_id: categoryId === '' ? null : Number(categoryId),
-      p_kind: kind,
-      p_due_date: null,
-    })
+    const cat = categoryId === '' ? null : Number(categoryId)
+
+    const { error } = repeat
+      ? await supabase.rpc('create_account', {
+          p_name: name,
+          p_kind: kind,
+          p_frequency: 'per_paycheck',
+          p_amount: Number(amount || 0),
+          p_category_id: cat,
+          p_always_due: true,
+        })
+      : await supabase.rpc('add_adhoc_line', {
+          p_period_id: periodId,
+          p_name: name,
+          p_amount: Number(amount || 0),
+          p_category_id: cat,
+          p_kind: kind,
+          p_due_date: null,
+        })
+
     setBusy(false)
     if (error) onError(error.message)
     else onDone()
@@ -98,7 +121,9 @@ function AdHocLine({
   return (
     <div className="border border-rule p-3 space-y-3 mt-2">
       <p className="text-xs text-ink3">
-        Adds it to this period only. For something that recurs, add it on the Bills tab instead.
+        {repeat
+          ? 'Creates it as an account and puts it on every period from now on. It will show on the Bills tab.'
+          : 'Adds it to this period only. It will not appear on the Bills tab — nothing recurring is created.'}
       </p>
       <div className="grid grid-cols-2 gap-2">
         <label className="block">
@@ -157,8 +182,14 @@ function AdHocLine({
           <option value="saving">Savings</option>
         </select>
       </label>
+      <label className="flex items-center gap-2 text-sm cursor-pointer">
+        <input type="checkbox" checked={repeat}
+          onChange={(e) => setRepeat(e.target.checked)} />
+        Repeat this every period
+      </label>
+
       <button className="btn-go" disabled={busy || !name.trim() || !amount} onClick={save}>
-        {busy ? 'Adding…' : 'Add to this period'}
+        {busy ? 'Adding…' : repeat ? 'Add to every period' : 'Add to this period'}
       </button>
     </div>
   )
