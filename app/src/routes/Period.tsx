@@ -375,6 +375,23 @@ export function Period({ isOwner }: { isOwner: boolean }) {
                   <h2 className="eyebrow">{g.label}</h2>
                   <span className="num text-xs text-ink3">{fmt(g.total)}</span>
                 </div>
+                {/*
+                  Same widths, gap and padding as LineRow's own row, and
+                  the same responsive classes — a column that hides at a
+                  breakpoint takes its heading with it. The dot and the
+                  tick get spacers rather than labels: neither is a column
+                  anyone reads down.
+                */}
+                <div className="flex items-center gap-3 px-3 pb-1 text-[10px]
+                                uppercase tracking-[0.14em] text-ink3 font-medium">
+                  <span aria-hidden className="w-1.5 shrink-0" />
+                  <span className="flex-1 min-w-0">Name</span>
+                  <span className="hidden md:block w-24 shrink-0">Status</span>
+                  <span className="hidden sm:block w-36 shrink-0">Category</span>
+                  <span className="w-28 shrink-0 text-right">Amount</span>
+                  <span aria-hidden className="w-7 shrink-0" />
+                </div>
+
                 <ul className="border border-rule">
                   {g.items.map((l) => (
                     <LineRow key={l.id} line={l} isOwner={isOwner} editable={editable}
