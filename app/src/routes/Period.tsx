@@ -12,6 +12,12 @@ import type { AccountKind, BudgetLine } from '../lib/types'
 const ORDER: AccountKind[] = ['bill', 'expense', 'debt', 'saving']
 
 interface ExpenseName { name: string; last_used: string | null; times: number }
+interface Suggestion {
+  category_id: number
+  category_name: string
+  source: 'history' | 'keyword'
+  matched_on: string
+}
 
 function AdHocLine({
   periodId, onDone, onError,
@@ -21,6 +27,12 @@ function AdHocLine({
   const [kind, setKind] = useState('expense')
   const [busy, setBusy] = useState(false)
   const [known, setKnown] = useState<ExpenseName[]>([])
+  const [cats, setCats] = useState<{ id: number; full_name: string }[]>([])
+  const [categoryId, setCategoryId] = useState<string>('')
+  const [suggestion, setSuggestion] = useState<Suggestion | null>(null)
+  // True once the category has been chosen by hand — after that a new
+  // suggestion is offered but never applied over the top of it.
+  const [touched, setTouched] = useState(false)
 
   // Everything ever spent on, from the catalogue and from past one-offs.
   useEffect(() => {
@@ -28,7 +40,31 @@ function AdHocLine({
       .select('name,last_used,times')
       .order('times', { ascending: false })
       .then(({ data }) => setKnown((data ?? []) as ExpenseName[]))
+    void supabase.from('v_category_picker').select('id, full_name')
+      .order('full_name')
+      .then(({ data }) => setCats((data ?? []) as typeof cats))
   }, [])
+
+  /*
+   * Ask the database what this looks like, a beat after typing stops.
+   * suggest_category prefers where the same name went last time and falls
+   * back to a keyword match, and says which it used — a decision already
+   * made and a guess are worth showing differently.
+   */
+  useEffect(() => {
+    const q = name.trim()
+    if (q.length < 3) { setSuggestion(null); return }
+    let cancelled = false
+    const t = setTimeout(() => {
+      void supabase.rpc('suggest_category', { p_name: q }).then(({ data }) => {
+        if (cancelled) return
+        const s = (data ?? [])[0] as Suggestion | undefined
+        setSuggestion(s ?? null)
+        if (s && !touched) setCategoryId(String(s.category_id))
+      })
+    }, 350)
+    return () => { cancelled = true; clearTimeout(t) }
+  }, [name, touched])
 
   // Most used first, then most recent, so the obvious answer is at the top.
   const suggestions = useMemo(() => {
@@ -48,7 +84,7 @@ function AdHocLine({
       p_period_id: periodId,
       p_name: name,
       p_amount: Number(amount || 0),
-      p_category_id: null,
+      p_category_id: categoryId === '' ? null : Number(categoryId),
       p_kind: kind,
       p_due_date: null,
     })
@@ -56,6 +92,8 @@ function AdHocLine({
     if (error) onError(error.message)
     else onDone()
   }
+
+  const suggested = suggestion && String(suggestion.category_id) === categoryId
 
   return (
     <div className="border border-rule p-3 space-y-3 mt-2">
@@ -87,6 +125,29 @@ function AdHocLine({
             onChange={(e) => setAmount(e.target.value)} />
         </label>
       </div>
+      <label className="block">
+        <span className="eyebrow block mb-1">Category</span>
+        <select className="field" value={categoryId}
+          onChange={(e) => { setCategoryId(e.target.value); setTouched(true) }}>
+          <option value="">Uncategorised</option>
+          {cats.map((c) => (
+            <option key={c.id} value={c.id}>{c.full_name}</option>
+          ))}
+        </select>
+        {suggestion && (
+          <span className="eyebrow block mt-1 normal-case tracking-normal">
+            {suggested ? 'Suggested: ' : 'Or: '}
+            <button type="button" className="underline hover:text-ink"
+              onClick={() => { setCategoryId(String(suggestion.category_id)); setTouched(true) }}>
+              {suggestion.category_name}
+            </button>
+            {suggestion.source === 'history'
+              ? ' — where this went last time'
+              : ` — matched “${suggestion.matched_on}”`}
+          </span>
+        )}
+      </label>
+
       <label className="block">
         <span className="eyebrow block mb-1">Counts as</span>
         <select className="field" value={kind} onChange={(e) => setKind(e.target.value)}>
