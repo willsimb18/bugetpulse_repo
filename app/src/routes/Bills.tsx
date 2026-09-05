@@ -19,6 +19,7 @@ export function Bills({ isOwner }: { isOwner: boolean }) {
   const [showInactive, setShowInactive] = useState(false)
   const [kindFilter, setKindFilter] = useState<AccountKind | 'all'>('all')
   const [query, setQuery] = useState('')
+  const [cats, setCats] = useState<{ id: number; full_name: string }[]>([])
   const [busy, setBusy] = useState(false)
   const [adding, setAdding] = useState<AccountKind | null>(null)
 
@@ -30,6 +31,12 @@ export function Bills({ isOwner }: { isOwner: boolean }) {
   }, [])
 
   useEffect(() => { void load() }, [load])
+
+  useEffect(() => {
+    void supabase.from('v_category_picker').select('id, full_name')
+      .order('full_name')
+      .then(({ data }) => setCats((data ?? []) as typeof cats))
+  }, [])
 
   async function call(fn: string, args: Record<string, unknown>) {
     setBusy(true); setErr(null)
@@ -200,6 +207,8 @@ export function Bills({ isOwner }: { isOwner: boolean }) {
                   <p className="text-xs text-ink3">Only an owner can change these.</p>
                 ) : (
                   <>
+                    <CategoryEditor account={a} cats={cats} busy={busy} onSave={call} />
+
                     <ScheduleEditor account={a} busy={busy} onSave={call} />
 
                     <AmountEditor busy={busy} value={a.default_amount}
@@ -256,6 +265,55 @@ export function Bills({ isOwner }: { isOwner: boolean }) {
       </section>
       ))}
     </>
+  )
+}
+
+/*
+ * Which category an account belongs to.
+ *
+ * The value shown is the account's own category_id, which v_account_admin
+ * does not return — it returns the resolved names instead. So the current
+ * selection is matched on the full name it renders, and "Uncategorised"
+ * is a real choice rather than an empty box.
+ */
+function CategoryEditor({
+  account, cats, busy, onSave,
+}: {
+  account: AccountAdmin
+  cats: { id: number; full_name: string }[]
+  busy: boolean
+  onSave: (fn: string, args: Record<string, unknown>) => void
+}) {
+  const current = account.sub_type_name
+    ? `${account.type_name} / ${account.sub_type_name}`
+    : account.type_name ?? ''
+  const [value, setValue] = useState<string>(
+    String(cats.find((c) => c.full_name === current)?.id ?? ''))
+
+  useEffect(() => {
+    setValue(String(cats.find((c) => c.full_name === current)?.id ?? ''))
+  }, [cats, current])
+
+  return (
+    <div className="flex flex-wrap items-end gap-2">
+      <label className="flex-1 min-w-[10rem]">
+        <span className="eyebrow block mb-1">Category</span>
+        <select className="field py-1.5" value={value} disabled={busy}
+          onChange={(e) => setValue(e.target.value)}>
+          <option value="">Uncategorised</option>
+          {cats.map((c) => (
+            <option key={c.id} value={c.id}>{c.full_name}</option>
+          ))}
+        </select>
+      </label>
+      <button className="btn" disabled={busy}
+        onClick={() => onSave('set_account_category', {
+          p_account_id: account.id,
+          p_category_id: value === '' ? null : Number(value),
+        })}>
+        Save category
+      </button>
+    </div>
   )
 }
 
