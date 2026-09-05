@@ -21,7 +21,7 @@ export function Income({ isOwner }: { isOwner: boolean }) {
   const [openRate, setOpenRate] = useState<number | null>(null)
   const [periods, setPeriods] = useState<
     { id: number; label: string | null; pay_date: string;
-      period_start: string; period_end: string }[]>([])
+      period_start: string; period_end: string; is_closed: boolean }[]>([])
   const [allIncome, setAllIncome] = useState<IncomeRow[]>([])
 
   const load = useCallback(async () => {
@@ -31,16 +31,24 @@ export function Income({ isOwner }: { isOwner: boolean }) {
     ])
     setWages((w.data ?? []) as WageRow[])
     setEarners((e.data ?? []) as { id: number; display_name: string }[])
-    // The calendar runs a year ahead, so ordering by pay_date descending
-    // put 2027 at the top of the list. Take the periods around now
-    // instead: a little history to catch up on, then what is coming.
+    /*
+     * Periods around now — a little history to catch up on, then what is
+     * coming. Ordered ascending; descending put 2027 at the top, since
+     * the calendar runs a year ahead.
+     *
+     * Deliberately NOT filtered on is_closed. The import writes its
+     * periods closed, so wherever the imported calendar covers today the
+     * current period was being filtered out of the list entirely and
+     * could never be selected — which is exactly what "it will not
+     * default to the current period" turned out to be. Closed ones are
+     * labelled instead, so recording into one is a visible choice.
+     */
     const from = new Date(Date.now() - 45 * 86_400_000).toISOString().slice(0, 10)
     const { data: p } = await supabase
-      .from('budget_period').select('id, label, pay_date, period_start, period_end')
-      .eq('is_closed', false)
+      .from('budget_period').select('id, label, pay_date, period_start, period_end, is_closed')
       .gte('period_end', from)
       .order('pay_date', { ascending: true })
-      .limit(12)
+      .limit(16)
     setPeriods((p ?? []) as typeof periods)
 
     // The list shows the last 40; the chart needs every month there is.
@@ -361,7 +369,7 @@ function PaycheckForm({
 }: {
   earners: { id: number; display_name: string }[]
   periods: { id: number; label: string | null; pay_date: string;
-             period_start: string; period_end: string }[]
+             period_start: string; period_end: string; is_closed: boolean }[]
   onDone: () => void
   onError: (m: string | null) => void
 }) {
@@ -374,11 +382,15 @@ function PaycheckForm({
     if (earnerId === '' && earners[0]) setEarnerId(earners[0].id)
     if (periodId === '' && periods[0]) {
       const today = new Date().toISOString().slice(0, 10)
-      const current = periods.find((p) => p.period_start <= today && today <= p.period_end)
-      // The list runs from 45 days back, so falling through to periods[0]
-      // put a six-week-old period in the box. Prefer the one containing
-      // today; failing that the next one starting, which is what a
-      // paycheck arriving now belongs to; only then the latest on file.
+      const holdsToday = (p: typeof periods[number]) =>
+        p.period_start <= today && today <= p.period_end
+      // The calendar has overlapping periods in places, so today can match
+      // more than one. An open one is where a paycheck belongs, so it wins.
+      const current = periods.find((p) => holdsToday(p) && !p.is_closed)
+        ?? periods.find(holdsToday)
+      // Failing that, the next period starting — where a paycheck arriving
+      // now belongs — and only then the latest on file. The list runs from
+      // 45 days back, so periods[0] would be six weeks old.
       const next = periods.find((p) => p.period_start >= today)
       setPeriodId((current ?? next ?? periods[periods.length - 1]).id)
     }
@@ -419,7 +431,9 @@ function PaycheckForm({
           <select className="field" value={periodId}
             onChange={(e) => setPeriodId(Number(e.target.value))}>
             {periods.map((p) => (
-              <option key={p.id} value={p.id}>{p.label ?? p.pay_date}</option>
+              <option key={p.id} value={p.id}>
+                {p.label ?? p.pay_date}{p.is_closed ? ' · closed' : ''}
+              </option>
             ))}
           </select>
         </label>
