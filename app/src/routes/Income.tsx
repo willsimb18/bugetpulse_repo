@@ -32,23 +32,26 @@ export function Income({ isOwner }: { isOwner: boolean }) {
     setWages((w.data ?? []) as WageRow[])
     setEarners((e.data ?? []) as { id: number; display_name: string }[])
     /*
-     * Periods around now — a little history to catch up on, then what is
-     * coming. Ordered ascending; descending put 2027 at the top, since
-     * the calendar runs a year ahead.
+     * The period we are in, and the ones after it. Nothing behind us:
+     * a paycheck is being recorded as it arrives, so a fortnight that has
+     * already ended is never the answer, and offering it only makes the
+     * right one harder to find.
      *
-     * Deliberately NOT filtered on is_closed. The import writes its
-     * periods closed, so wherever the imported calendar covers today the
-     * current period was being filtered out of the list entirely and
-     * could never be selected — which is exactly what "it will not
-     * default to the current period" turned out to be. Closed ones are
-     * labelled instead, so recording into one is a visible choice.
+     * period_end >= today is what makes it "current and future" — a
+     * period is still current on its last day. Closed ones are excluded
+     * too; the import wrote its whole history closed, and those overlap
+     * the live calendar in places.
+     *
+     * Ordered ascending, so the first row is the current period or, if
+     * there is somehow no period over today, the next one to start.
      */
-    const from = new Date(Date.now() - 45 * 86_400_000).toISOString().slice(0, 10)
+    const today = new Date().toISOString().slice(0, 10)
     const { data: p } = await supabase
       .from('budget_period').select('id, label, pay_date, period_start, period_end, is_closed')
-      .gte('period_end', from)
-      .order('pay_date', { ascending: true })
-      .limit(16)
+      .gte('period_end', today)
+      .eq('is_closed', false)
+      .order('period_start', { ascending: true })
+      .limit(12)
     setPeriods((p ?? []) as typeof periods)
 
     // The list shows the last 40; the chart needs every month there is.
@@ -382,17 +385,11 @@ function PaycheckForm({
     if (earnerId === '' && earners[0]) setEarnerId(earners[0].id)
     if (periodId === '' && periods[0]) {
       const today = new Date().toISOString().slice(0, 10)
-      const holdsToday = (p: typeof periods[number]) =>
-        p.period_start <= today && today <= p.period_end
-      // The calendar has overlapping periods in places, so today can match
-      // more than one. An open one is where a paycheck belongs, so it wins.
-      const current = periods.find((p) => holdsToday(p) && !p.is_closed)
-        ?? periods.find(holdsToday)
-      // Failing that, the next period starting — where a paycheck arriving
-      // now belongs — and only then the latest on file. The list runs from
-      // 45 days back, so periods[0] would be six weeks old.
-      const next = periods.find((p) => p.period_start >= today)
-      setPeriodId((current ?? next ?? periods[periods.length - 1]).id)
+      // The list already starts at the current period, so the fallback is
+      // simply its first row rather than a search through the past.
+      const current = periods.find(
+        (p) => p.period_start <= today && today <= p.period_end)
+      setPeriodId((current ?? periods[0]).id)
     }
   }, [earners, periods, earnerId, periodId])
 
