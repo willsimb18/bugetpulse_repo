@@ -290,7 +290,7 @@ function ScheduleEditor({
           ? 'Expenses are added to a period as they come up, so there is no due date.'
           : account.kind === 'saving'
             ? 'Savings go in with the paycheck, so there is no due date.'
-            : 'Due every paycheck, so there is no date to set.'}
+            : 'Due every pay period, so there is no date to set.'}
       </p>
     )
   }

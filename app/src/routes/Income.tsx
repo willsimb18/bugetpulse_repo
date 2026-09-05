@@ -374,8 +374,13 @@ function PaycheckForm({
     if (earnerId === '' && earners[0]) setEarnerId(earners[0].id)
     if (periodId === '' && periods[0]) {
       const today = new Date().toISOString().slice(0, 10)
-      const now = periods.find((p) => p.period_start <= today && today <= p.period_end)
-      setPeriodId((now ?? periods[0]).id)
+      const current = periods.find((p) => p.period_start <= today && today <= p.period_end)
+      // The list runs from 45 days back, so falling through to periods[0]
+      // put a six-week-old period in the box. Prefer the one containing
+      // today; failing that the next one starting, which is what a
+      // paycheck arriving now belongs to; only then the latest on file.
+      const next = periods.find((p) => p.period_start >= today)
+      setPeriodId((current ?? next ?? periods[periods.length - 1]).id)
     }
   }, [earners, periods, earnerId, periodId])
 

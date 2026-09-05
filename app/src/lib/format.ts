@@ -74,14 +74,17 @@ export function dueOnLabel(a: {
   // paycheck does. Printing an anchor date for either implies a deadline
   // that does not exist.
   if (a.kind === 'expense' || a.kind === 'saving') return 'n/a'
-  if (a.is_always_due) return 'Every period'
+  // always_due, biweekly and per_paycheck are the same cadence said three
+  // ways: one line, every pay period. Three different labels for it read
+  // as three different schedules.
+  if (a.is_always_due) return 'Every pay period'
   const ord = (d: number) => {
     const s = ['th', 'st', 'nd', 'rd'][(d % 100 - 20) % 10] ?? ['th', 'st', 'nd', 'rd'][d % 100] ?? 'th'
     return `${d}${s}`
   }
   switch (a.frequency) {
     case 'per_paycheck':
-      return 'Every paycheck'
+      return 'Every pay period'
     case 'semimonthly':
       return a.due_day && a.due_day_2
         ? `${ord(a.due_day)} & ${ord(a.due_day_2)}`
@@ -94,7 +97,7 @@ export function dueOnLabel(a: {
       }
       return a.due_day ? ord(a.due_day) : '—'
     case 'biweekly':
-      return 'Every paycheck'
+      return 'Every pay period'
     case 'weekly':
     case 'one_time':
       return a.anchor_date ? `From ${fmtDate(a.anchor_date)}` : '—'
