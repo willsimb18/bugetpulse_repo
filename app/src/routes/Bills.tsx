@@ -145,6 +145,14 @@ export function Bills({ isOwner }: { isOwner: boolean }) {
             {g.items.length} · {fmt(g.items.reduce((t, a) => t + Number(a.default_amount), 0))}
           </span>
         </div>
+      <div className="flex items-center gap-3 px-3 pb-1 text-[10px] uppercase
+                      tracking-[0.14em] text-ink3 font-medium">
+        <span className="flex-1 min-w-0">Name</span>
+        <span className="hidden sm:block w-32 shrink-0">Category</span>
+        <span className="hidden md:block w-24 shrink-0">Due on</span>
+        <span className="w-28 shrink-0 text-right">Amount</span>
+      </div>
+
       <ul className="border border-rule">
         {g.items.map((a) => (
           <li key={a.id} className="bar-row">
@@ -270,14 +278,19 @@ function ScheduleEditor({
   busy: boolean
   onSave: (fn: string, args: Record<string, unknown>) => void
 }) {
-  const field = scheduleField(account.frequency)
+  const field = account.kind === 'expense' || account.kind === 'saving'
+    ? 'none' : scheduleField(account.frequency)
   const [day, setDay] = useState(String(account.due_day ?? ''))
   const [anchor, setAnchor] = useState(account.anchor_date ?? '')
 
   if (field === 'none') {
     return (
       <p className="text-xs text-ink3">
-        Due each paycheck, so there is no date to set.
+        {account.kind === 'expense'
+          ? 'Expenses are added to a period as they come up, so there is no due date.'
+          : account.kind === 'saving'
+            ? 'Savings go in with the paycheck, so there is no due date.'
+            : 'Due every paycheck, so there is no date to set.'}
       </p>
     )
   }

@@ -61,6 +61,7 @@ export const URGENCY_LEGEND: { key: string; dot: string; label: string }[] = [
  * kind of thing it is looking at, not just print a number.
  */
 export function dueOnLabel(a: {
+  kind?: string
   frequency: string
   due_day: number | null
   due_day_2?: number | null
@@ -68,6 +69,11 @@ export function dueOnLabel(a: {
   anchor_date: string | null
   is_always_due: boolean
 }) {
+  // Expenses and savings have no due date to speak of — an expense is
+  // decided period by period and a savings contribution goes in when the
+  // paycheck does. Printing an anchor date for either implies a deadline
+  // that does not exist.
+  if (a.kind === 'expense' || a.kind === 'saving') return 'n/a'
   if (a.is_always_due) return 'Every period'
   const ord = (d: number) => {
     const s = ['th', 'st', 'nd', 'rd'][(d % 100 - 20) % 10] ?? ['th', 'st', 'nd', 'rd'][d % 100] ?? 'th'
@@ -75,7 +81,7 @@ export function dueOnLabel(a: {
   }
   switch (a.frequency) {
     case 'per_paycheck':
-      return 'Each paycheck'
+      return 'Every paycheck'
     case 'semimonthly':
       return a.due_day && a.due_day_2
         ? `${ord(a.due_day)} & ${ord(a.due_day_2)}`
@@ -87,8 +93,9 @@ export function dueOnLabel(a: {
         return `${m} ${a.due_day}`
       }
       return a.due_day ? ord(a.due_day) : '—'
-    case 'weekly':
     case 'biweekly':
+      return 'Every paycheck'
+    case 'weekly':
     case 'one_time':
       return a.anchor_date ? `From ${fmtDate(a.anchor_date)}` : '—'
     default:
