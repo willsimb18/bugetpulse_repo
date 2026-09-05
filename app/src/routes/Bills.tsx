@@ -20,6 +20,8 @@ export function Bills({ isOwner }: { isOwner: boolean }) {
   const [kindFilter, setKindFilter] = useState<AccountKind | 'all'>('all')
   const [query, setQuery] = useState('')
   const [cats, setCats] = useState<{ id: number; full_name: string }[]>([])
+  // Expense accounts that are actually on this period's budget.
+  const [onBudget, setOnBudget] = useState<Set<number> | null>(null)
   const [busy, setBusy] = useState(false)
   const [adding, setAdding] = useState<AccountKind | null>(null)
 
@@ -38,6 +40,34 @@ export function Bills({ isOwner }: { isOwner: boolean }) {
       .then(({ data }) => setCats((data ?? []) as typeof cats))
   }, [])
 
+  /*
+   * The import brought across 286 expense accounts, and since migration 16
+   * an expense only reaches a period if someone put it there. Listing all
+   * 286 under Expenses is a catalogue, not a budget — so that section is
+   * narrowed to the ones on the current period.
+   *
+   * Nothing is deleted. Every account and all its history stay exactly
+   * where they are; this is the Bills page choosing what to show.
+   */
+  useEffect(() => {
+    void (async () => {
+      const today = new Date().toISOString().slice(0, 10)
+      const { data: p } = await supabase
+        .from('budget_period').select('id')
+        .lte('period_start', today).gte('period_end', today)
+        .order('period_start').limit(1)
+      const period = (p ?? [])[0] as { id: number } | undefined
+      if (!period) { setOnBudget(new Set()); return }
+
+      const { data: l } = await supabase
+        .from('budget_line').select('account_id')
+        .eq('budget_period_id', period.id)
+        .not('account_id', 'is', null)
+      setOnBudget(new Set(((l ?? []) as { account_id: number }[])
+        .map((r) => r.account_id)))
+    })()
+  }, [])
+
   async function call(fn: string, args: Record<string, unknown>) {
     setBusy(true); setErr(null)
     const { error } = await supabase.rpc(fn, args)
@@ -53,11 +83,22 @@ export function Bills({ isOwner }: { isOwner: boolean }) {
     (r.type_name ?? '').toLowerCase().includes(q) ||
     (r.sub_type_name ?? '').toLowerCase().includes(q)
 
+  // is_always_due expenses stay listed whether or not this period has
+  // materialised yet — they are on every period by definition.
+  const currentExpense = (r: AccountAdmin) =>
+    r.kind !== 'expense' || onBudget === null
+      || r.is_always_due || onBudget.has(r.id)
+
   const visible = rows.filter(
     (r) => (showInactive || r.is_active)
         && (kindFilter === 'all' || r.kind === kindFilter)
-        && matches(r),
+        && matches(r)
+        && currentExpense(r),
   )
+
+  const hiddenExpenses = onBudget === null ? 0 : rows.filter(
+    (r) => r.kind === 'expense' && (showInactive || r.is_active)
+        && matches(r) && !currentExpense(r)).length
 
   // Fixed order, so a section never jumps position when another empties.
   const KIND_ORDER: AccountKind[] = ['bill', 'expense', 'debt', 'saving']
@@ -68,7 +109,8 @@ export function Bills({ isOwner }: { isOwner: boolean }) {
   // Counts come off the unfiltered rows, so the dropdown can say what is
   // behind an option you haven't picked yet.
   const countOf = (k: AccountKind) =>
-    rows.filter((r) => (showInactive || r.is_active) && r.kind === k && matches(r)).length
+    rows.filter((r) => (showInactive || r.is_active) && r.kind === k
+                    && matches(r) && currentExpense(r)).length
 
   return (
     <>
@@ -142,6 +184,15 @@ export function Bills({ isOwner }: { isOwner: boolean }) {
               ? 'No accounts yet.'
               : `No ${KIND_LABEL[kindFilter].toLowerCase()} to show.`}
         </Empty>
+      )}
+
+      {hiddenExpenses > 0 && (
+        <p className="text-xs text-ink3 pb-3">
+          {hiddenExpenses} other expense{hiddenExpenses === 1 ? '' : 's'} are on
+          file but not on this period. They are still there — add one to a
+          period from the Budget tab, or tick “Always due” to have it appear
+          every time.
+        </p>
       )}
 
       {groups.map((g) => (
