@@ -22,6 +22,7 @@ export function LineRow({
   const [amt, setAmt] = useState(String(line.amount_due))
   const u = urgencyOf(line.due_date, line.status)
   const paid = line.status === 'paid'
+  const skipped = line.status === 'skipped'
 
   async function call(fn: string, args: Record<string, unknown>) {
     setBusy(true)
@@ -42,7 +43,8 @@ export function LineRow({
           aria-expanded={open}
           className="flex-1 text-left min-w-0"
         >
-          <span className={`block truncate text-[15px] ${paid ? 'text-ink3 line-through' : ''}`}>
+          <span className={`block truncate text-[15px] ${
+            paid || skipped ? 'text-ink3' : ''} ${paid ? 'line-through' : ''}`}>
             {line.name}
           </span>
           {line.settled_on && line.paid_on && line.settled_on !== line.paid_on && (
@@ -54,6 +56,7 @@ export function LineRow({
             {fmtDate(line.due_date)}
             {u === 'overdue' && !paid && <span className="text-rust"> · overdue</span>}
             {line.status === 'partial' && <span className="text-amber"> · part paid</span>}
+            {skipped && <span className="text-ink3"> · skipped this period</span>}
             {line.amount_overridden && <span> · edited</span>}
           </span>
           {line.last_paid_amount != null && (
@@ -79,7 +82,8 @@ export function LineRow({
         </span>
 
         <span className={`num text-[15px] w-28 shrink-0 text-right tabular-nums
-                          ${paid ? 'text-ink3' : ''}`}>
+                          ${paid || skipped ? 'text-ink3' : ''} ${
+                          skipped ? 'line-through' : ''}`}>
           {fmt(paid || line.status === 'partial' ? line.amount_paid : line.amount_due)}
         </span>
 
@@ -171,6 +175,26 @@ export function LineRow({
                 <button className="btn" disabled={busy}
                   onClick={() => call('reset_line_amount', { p_line_id: line.id })}>
                   Reset
+                </button>
+              )}
+
+              {/*
+                Skip leaves the line in place with status 'skipped' rather
+                than deleting it. A deleted line would be put straight
+                back by the next materialize_period run — the row itself
+                is what blocks that, through the on-conflict-do-nothing on
+                (period, account, due_date). The next period still gets a
+                fresh line at the account's own cadence.
+              */}
+              {!paid && line.status !== 'partial' && (
+                <button className="btn" disabled={busy}
+                  title={skipped
+                    ? 'Put this back on the budget for this period'
+                    : 'Leave this off this period only — it returns next time'}
+                  onClick={() => call(
+                    skipped ? 'unskip_line' : 'skip_line',
+                    { p_line_id: line.id })}>
+                  {skipped ? 'Put back' : 'Skip this period'}
                 </button>
               )}
             </>

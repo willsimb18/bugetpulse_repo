@@ -94,6 +94,9 @@ export interface AccountAdmin {
   frequency: string
   default_amount: number
   due_day: number | null
+  due_day_2: number | null
+  due_month: number | null
+  anchor_date: string | null
   is_always_due: boolean
   is_active: boolean
   amount_mode: AmountMode

@@ -52,6 +52,56 @@ export const URGENCY_LEGEND: { key: string; dot: string; label: string }[] = [
   { key: 'paid',     dot: 'bg-moss', label: 'Paid' },
 ]
 
+/*
+ * The schedule in words: what "Due On" shows for an account.
+ *
+ * The shape of the answer depends on the cadence — monthly bills carry a
+ * day of the month, weekly and biweekly ones an anchor date they count
+ * from, per_paycheck none at all — so a single column has to say which
+ * kind of thing it is looking at, not just print a number.
+ */
+export function dueOnLabel(a: {
+  frequency: string
+  due_day: number | null
+  due_day_2?: number | null
+  due_month?: number | null
+  anchor_date: string | null
+  is_always_due: boolean
+}) {
+  if (a.is_always_due) return 'Every period'
+  const ord = (d: number) => {
+    const s = ['th', 'st', 'nd', 'rd'][(d % 100 - 20) % 10] ?? ['th', 'st', 'nd', 'rd'][d % 100] ?? 'th'
+    return `${d}${s}`
+  }
+  switch (a.frequency) {
+    case 'per_paycheck':
+      return 'Each paycheck'
+    case 'semimonthly':
+      return a.due_day && a.due_day_2
+        ? `${ord(a.due_day)} & ${ord(a.due_day_2)}`
+        : a.due_day ? ord(a.due_day) : '—'
+    case 'annual':
+      if (a.due_month && a.due_day) {
+        const m = new Date(2000, a.due_month - 1, 1)
+          .toLocaleDateString('en-US', { month: 'short' })
+        return `${m} ${a.due_day}`
+      }
+      return a.due_day ? ord(a.due_day) : '—'
+    case 'weekly':
+    case 'biweekly':
+    case 'one_time':
+      return a.anchor_date ? `From ${fmtDate(a.anchor_date)}` : '—'
+    default:
+      return a.due_day ? ord(a.due_day) : '—'
+  }
+}
+
+/** Which field an account's schedule is actually edited through. */
+export const scheduleField = (frequency: string): 'due_day' | 'anchor_date' | 'none' =>
+  frequency === 'per_paycheck' ? 'none'
+    : ['weekly', 'biweekly', 'one_time'].includes(frequency) ? 'anchor_date'
+    : 'due_day'
+
 export const KIND_LABEL: Record<string, string> = {
   bill: 'Bills', expense: 'Expenses', debt: 'Debt payments', saving: 'Savings',
 }

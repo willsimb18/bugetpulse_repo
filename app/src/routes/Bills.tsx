@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { Empty, Err } from '../components/Chrome'
-import { fmt, fmtDate, KIND_LABEL } from '../lib/format'
+import { dueOnLabel, fmt, fmtDate, KIND_LABEL, scheduleField } from '../lib/format'
 import type { AccountAdmin, AccountKind, AmountMode } from '../lib/types'
 import { NewAccount } from '../components/NewAccount'
 
@@ -159,10 +159,23 @@ export function Bills({ isOwner }: { isOwner: boolean }) {
                 </span>
                 <span className="eyebrow">
                   {KIND_LABEL[a.kind]} · {a.frequency.replace(/_/g, ' ')}
-                  {a.is_always_due && ' · always due'}
                 </span>
               </span>
-              <span className="num text-[15px]">{fmt(a.default_amount)}</span>
+
+              <span className="hidden sm:block w-32 shrink-0 text-xs text-ink2 truncate">
+                {a.type_name ?? <span className="text-ink3">—</span>}
+                {a.sub_type_name && (
+                  <span className="block text-ink3 truncate">{a.sub_type_name}</span>
+                )}
+              </span>
+
+              <span className="hidden md:block w-24 shrink-0 text-xs text-ink2 truncate">
+                {dueOnLabel(a)}
+              </span>
+
+              <span className="num text-[15px] w-28 shrink-0 text-right">
+                {fmt(a.default_amount)}
+              </span>
             </button>
 
             {openId === a.id && (
@@ -179,6 +192,8 @@ export function Bills({ isOwner }: { isOwner: boolean }) {
                   <p className="text-xs text-ink3">Only an owner can change these.</p>
                 ) : (
                   <>
+                    <ScheduleEditor account={a} busy={busy} onSave={call} />
+
                     <AmountEditor busy={busy} value={a.default_amount}
                       onSave={(v, applyOpen) =>
                         call('update_account_amount', {
@@ -233,6 +248,75 @@ export function Bills({ isOwner }: { isOwner: boolean }) {
       </section>
       ))}
     </>
+  )
+}
+
+/*
+ * Editing when a bill is due.
+ *
+ * Which field to offer depends on the cadence: monthly and its relatives
+ * are a day of the month, weekly and biweekly count from an anchor date,
+ * per_paycheck has no date of its own at all. Offering a day-of-month box
+ * for a biweekly account would write a value the schedule never reads.
+ *
+ * reschedule_account does the rest — it rewrites the unpaid lines in open
+ * periods onto the new dates, so the change shows on the budget straight
+ * away rather than at the next nightly run.
+ */
+function ScheduleEditor({
+  account, busy, onSave,
+}: {
+  account: AccountAdmin
+  busy: boolean
+  onSave: (fn: string, args: Record<string, unknown>) => void
+}) {
+  const field = scheduleField(account.frequency)
+  const [day, setDay] = useState(String(account.due_day ?? ''))
+  const [anchor, setAnchor] = useState(account.anchor_date ?? '')
+
+  if (field === 'none') {
+    return (
+      <p className="text-xs text-ink3">
+        Due each paycheck, so there is no date to set.
+      </p>
+    )
+  }
+
+  return (
+    <div className="flex flex-wrap items-end gap-2">
+      {field === 'due_day' ? (
+        <label className="min-w-[7rem]">
+          <span className="eyebrow block mb-1">Due on day</span>
+          <input className="field py-1.5" inputMode="numeric" value={day}
+            onChange={(e) => setDay(e.target.value)} placeholder="16" />
+        </label>
+      ) : (
+        <label className="min-w-[10rem]">
+          <span className="eyebrow block mb-1">Counting from</span>
+          <input className="field py-1.5" type="date" value={anchor}
+            onChange={(e) => setAnchor(e.target.value)} />
+        </label>
+      )}
+
+      <button
+        className="btn"
+        disabled={busy || (field === 'due_day'
+          ? !(Number(day) >= 1 && Number(day) <= 31)
+          : !anchor)}
+        onClick={() => onSave('reschedule_account', {
+          p_account_id: account.id,
+          ...(field === 'due_day'
+            ? { p_due_day: Number(day) }
+            : { p_anchor_date: anchor }),
+        })}
+      >
+        Save due date
+      </button>
+
+      <span className="eyebrow self-center">
+        currently {dueOnLabel(account)}
+      </span>
+    </div>
   )
 }
 
