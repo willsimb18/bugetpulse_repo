@@ -48,14 +48,23 @@ order by l.kind, l.name;
 do $$
 declare v_n int := 0;
 begin
-  update budget_line l
-     set category_id = s.category_id
-    from budget_period p,
-         lateral suggest_category(l.name) s
-   where p.id = l.budget_period_id
-     and p.period_start <= current_date and current_date <= p.period_end
-     and l.category_id is null
-     and s.category_id is not null;
+  -- The suggestion is worked out in a CTE and the update joins to it by
+  -- id. An UPDATE ... FROM cannot reference its own target table from a
+  -- LATERAL in the FROM clause, which is what the first attempt did.
+  -- This also calls suggest_category once per row rather than twice.
+  with picks as (
+    select l.id as line_id, s.category_id
+    from budget_line l
+    join budget_period p on p.id = l.budget_period_id
+    cross join lateral suggest_category(l.name) s
+    where p.period_start <= current_date and current_date <= p.period_end
+      and l.category_id is null
+      and s.category_id is not null
+  )
+  update budget_line b
+     set category_id = picks.category_id
+    from picks
+   where picks.line_id = b.id;
   get diagnostics v_n = row_count;
 
   raise notice 'Categorised % line(s).', v_n;
